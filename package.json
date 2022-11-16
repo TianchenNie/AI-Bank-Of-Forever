@@ -1,0 +1,23 @@
+{
+  "name": "ai-bank-of-forever",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TianchenNie/AI-Bank-Of-Forever.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/TianchenNie/AI-Bank-Of-Forever/issues"
+  },
+  "homepage": "https://github.com/TianchenNie/AI-Bank-Of-Forever#readme",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
