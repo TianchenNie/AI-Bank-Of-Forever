@@ -59,7 +59,7 @@ app.get(
             res.status(INVALID_AUTH).send(`Incorrect password.`);
             return;
         }
-        res.status(OK).send(`User account balance: ${user.balance}`);
+        res.status(OK).send(`User account balance: ${user.balance.toFixed(2)}`);
     }
 );
 
@@ -67,5 +67,3 @@ app.listen(
     PORT,
     () => console.log(`Listening on port ${PORT}!!!!!`)
 );
-
-
