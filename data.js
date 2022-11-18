@@ -1,15 +1,21 @@
 // TODO: store this info in database
 export const users = {
-    "a@gmail.com": {
+    1: {
+        "email": "a@gmail.com",
         "password": "a",
-        "balance": 30000
+        "balance": 30000,
+        "timeCreated": Date.now()
     },
-    "b@gmail.com": {
+    2: {
+        "email": "b@gmail.com",
         "password": "b",
-        "balance": 40
+        "balance": 40,
+        "timeCreated": Date.now()
     },
-    "c@gmail.com": {
+    3: {
+        "email": "c@gmail.com",
         "password": "c",
-        "balance": 50
+        "balance": 50,
+        "timeCreated": Date.now()
     }
 };

@@ -3,6 +3,7 @@ export const RESPONSE = Object.freeze({
     BAD_REQUEST: 400,
     INVALID_AUTH: 401,
     NOT_FOUND: 404,
+    INTERNAL_SERVER_ERR: 500,
     SERVICE_UNAVAILABLE: 503,
 });
 
