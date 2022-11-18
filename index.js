@@ -19,7 +19,7 @@ api/
 // read environment variable to get port, if doesn't exist, use 8080
 const PORT = process.env.PORT || 8080;
 const username = process.env.DB_USERNAME || "nietian1";
-const password = process.env.DB_PASSWORD || "T081226c..";
+const password = process.env.DB_PASSWORD || "Aibank1234";
 
 const error = {
     val: ""
