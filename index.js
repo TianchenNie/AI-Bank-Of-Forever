@@ -23,7 +23,7 @@ const password = process.env.DB_PASSWORD || "Aibank1234";
 
 const error = {
     val: ""
-}
+};
 
 await connectToMongoDB(username, password, error);
 if (error.val != "") {

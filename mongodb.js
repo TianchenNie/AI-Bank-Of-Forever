@@ -15,9 +15,9 @@ export const MongoUser = mongoose.model('User', userSchema);
 
 export async function connectToMongoDB(username, password, error) {
     return mongoose.disconnect()
-            .then(() => mongoose.connect(`mongodb+srv://${username}:${password}@aibank.dtbawuy.mongodb.net/?retryWrites=true&w=majority`))
-            .then(() => console.log(`Connected ${"nietian1"} to MongoDB`))
-            .catch(err => error.val = err);
+        .then(() => mongoose.connect(`mongodb+srv://${username}:${password}@aibank.dtbawuy.mongodb.net/?retryWrites=true&w=majority`))
+        .then(() => console.log(`Connected ${username} to MongoDB`))
+        .catch(err => error.val = err);
 }
 
 export async function createUserInDB(user) {
