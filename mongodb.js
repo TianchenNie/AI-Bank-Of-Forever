@@ -14,8 +14,9 @@ const userSchema = new mongoose.Schema({
 export const MongoUser = mongoose.model('User', userSchema);
 
 export async function connectToMongoDB(username, password, error) {
+    const accessToken = `mongodb+srv://${username}:${password}@aibank.dtbawuy.mongodb.net/?retryWrites=true&w=majority`;
     return mongoose.disconnect()
-        .then(() => mongoose.connect(`mongodb+srv://${username}:${password}@aibank.dtbawuy.mongodb.net/?retryWrites=true&w=majority`))
+        .then(() => mongoose.connect(accessToken))
         .then(() => console.log(`Connected ${username} to MongoDB`))
         .catch(err => error.val = err);
 }

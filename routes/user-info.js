@@ -24,6 +24,7 @@ router.put(
             res.status(RESPONSE.BAD_REQUEST).send("Please enter a valid email.");
             return next();
         }
+        // TODO: ask professor what password format he wants
         else if (!password) {
             res.status(RESPONSE.BAD_REQUEST).send("Please enter a valid password.");
             return next();
@@ -65,6 +66,43 @@ router.put(
         return next();
     }
 );
+
+// Remove a user
+router.put(
+    '/remove/:email',
+    async (req, res, next) => {
+        console.log("Handling create new user.");
+        const email = req.params.email;
+
+        // check if parameters are valid
+        if (!email || !isValidEmail(email)) {
+            res.status(RESPONSE.BAD_REQUEST).send("Please enter a valid email.");
+            return next();
+        }
+
+        // check if user already exists in database
+        let error = false;
+
+        const ret = await MongoUser
+            .findOneAndDelete({ email: email })
+            .catch(msg => {
+                error = true;
+                console.log("Find error in remove user: ", msg);
+                res.status(RESPONSE.INTERNAL_SERVER_ERR).send("User lookup failed.");
+            });
+
+        console.log(ret)
+        if (ret == null) {
+            res.status(RESPONSE.BAD_REQUEST).send(`User to be removed with email ${email} does not exists.`);
+            return next();
+        }
+
+        console.log("Removed user: ", ret);
+        res.status(RESPONSE.OK).send(ret);
+        return next();
+    }
+);
+
 
 
 // TODO: confirm if we want to do this.
