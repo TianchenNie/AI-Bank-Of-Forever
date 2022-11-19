@@ -93,7 +93,7 @@ router.put(
 
         console.log(ret)
         if (ret == null) {
-            res.status(RESPONSE.BAD_REQUEST).send(`User to be removed with email ${email} does not exists.`);
+            res.status(RESPONSE.NOT_FOUND).send(`User to be removed with email ${email} does not exists.`);
             return next();
         }
 
