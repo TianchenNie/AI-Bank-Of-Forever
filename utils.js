@@ -21,7 +21,7 @@ export function isValidMoneyAmount(num) {
 
 /* Tranfer amount can only be a postive whole number, or a postive 2 decimal number */
 export function isValidTransferAmount(num) {
-    const atMostTwoDecimals = /^\d+(\.\d{0,2})?$/;
+    const atMostTwoDecimals = /^\d+(\.\d{1,2})?$/;
     return typeof num == "number" && num >= 0 && atMostTwoDecimals.test(String(num));
 }
 
