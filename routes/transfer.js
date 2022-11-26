@@ -2,9 +2,10 @@
  * API 1 and 3
  * used to handle internal and external transactions.
  ***************************************************/
-import { RESPONSE, isValidTransferAmount, twoDecimals } from "../utils.js";
+import { RESPONSE, isValidTransferAmount, twoDecimals, SECRET } from "../utils.js";
 import { MongoUser } from "../mongodb.js";
 import express from "express";
+import md5 from "blueimp-md5";
 
 const router = express.Router();
 // Perform transfer.
@@ -15,6 +16,7 @@ router.post(
         console.log("Handling internal transfer");
         const sender = req.body.sender;
         const receiver = req.body.receiver;
+        const senderpass = req.body.senderPassword;
         const moneyAmount = req.body.amount;
         if (!isValidTransferAmount(moneyAmount)) {
             res.status(RESPONSE.BAD_REQUEST).send("Amount to transfer is invalid.");
@@ -23,11 +25,11 @@ router.post(
         let error = false;
         const sendUser = await MongoUser
             .findOne({ email: sender })
-            .select({ balance: 1 })
+            .select({ password: 1, balance: 1 })
             .catch(msg => {
                 error = true;
                 console.log("User balance find error: ", msg);
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send(`Could not fetch user in db.`);
+                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
             });
 
         if (error) return next();
@@ -38,23 +40,21 @@ router.post(
             .catch(msg => {
                 error = true;
                 console.log("User balance find error: ", msg);
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send(`Could not fetch user in db.`);
+                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
             });
 
         if (error) return next();
 
-        if (sendUser == null && rcvUser == null) {
-            res.status(RESPONSE.NOT_FOUND).send("Could not find users.");
+        if (sendUser == null) {
+            res.status(RESPONSE.NOT_FOUND).send("Could not find sender.");
             return next();
         }
-        // if the sender is an external user
-        else if (sendUser == null) {
-            res.status(RESPONSE.SERVICE_UNAVAILABLE).send("External transfers not supported yet.");
+        else if (receiver == null) {
+            res.status(RESPONSE.NOT_FOUND).send("Could not find receiver.");
             return next();
         }
-        // if the receiver is an external user
-        else if (rcvUser == null) {
-            res.status(RESPONSE.SERVICE_UNAVAILABLE).send("External transfers not supported yet.");
+        else if (sendUser.password != md5(senderpass, SECRET)) {
+            res.status(RESPONSE.INVALID_AUTH).send("Sender password invalid.");
             return next();
         }
         else if (sendUser.balance < moneyAmount) {
@@ -67,7 +67,7 @@ router.post(
             .catch(msg => {
                 error = true;
                 console.log("Internal transfer balance update error: ", msg);
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send(`Update error.`);
+                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
             });
 
         if (error) return next();
@@ -77,7 +77,7 @@ router.post(
             .catch(msg => {
                 error = true;
                 console.log("Internal transfer balance update error: ", msg);
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send(`Update error.`);
+                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
             });
 
         if (error) return next();

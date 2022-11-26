@@ -2,16 +2,36 @@
  * used for user info like password, 
  * address, cellphone, email, create new user etc.
  ***************************************************/
-import { RESPONSE, isValidEmail } from "../utils.js";
+import { RESPONSE, isValidEmail, SECRET } from "../utils.js";
 import { MongoUser, createUserInDB } from "../mongodb.js";
 import express from "express";
+import md5 from "blueimp-md5";
 
 // used for user info like password, address, cellphone, email, create new user etc.
 
 // handle all routes under /api/user-info
 const router = express.Router();
+
+router.get(
+    '',
+    async (req, res, next) => {
+        let error = false;
+        console.log("Fetching all users.");
+        let users = await MongoUser
+            .find({})
+            .catch(err => {
+                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
+            });
+
+        if (error) return next();
+        res.status(RESPONSE.OK).send(users);
+        return next();
+    }
+);
+
 // PUT to user-info. Create a new user.
 // Idempotent as in duplicate users are not allowed to be created.
+// used for testing purposes
 router.put(
     '/new/:email/:password',
     async (req, res, next) => {
@@ -37,19 +57,19 @@ router.put(
             .catch(msg => {
                 error = true;
                 console.log("User find error in user-info put: ", msg);
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send("User lookup failed.");
+                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
             });
 
         if (error) return next();
         if (userExists) {
-            res.status(RESPONSE.BAD_REQUEST).send(`User account with email ${email} already exists.`);
+            res.status(RESPONSE.CONFLICT).send(`User account with email ${email} already exists.`);
             return next();
         }
 
         // create new user and insert into database
         const newUser = {
             email: email,
-            password: password,
+            password: md5(password, SECRET),
             balance: 0.00,
         };
 
@@ -57,118 +77,47 @@ router.put(
             .catch(err => {
                 error = true;
                 console.error("User creation error: ", err);
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send("Could not create user.");
+                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
             });
 
         if (error) return next();
         console.log("Created user: ", userTable);
-        res.status(RESPONSE.OK).send(newUser);
-        return next();
-    }
-);
-
-// Remove a user
-router.put(
-    '/remove/:email',
-    async (req, res, next) => {
-        console.log("Handling create new user.");
-        const email = req.params.email;
-
-        // check if parameters are valid
-        if (!email || !isValidEmail(email)) {
-            res.status(RESPONSE.BAD_REQUEST).send("Please enter a valid email.");
-            return next();
-        }
-
-        // check if user already exists in database
-        let error = false;
-
-        const ret = await MongoUser
-            .findOneAndDelete({ email: email })
-            .catch(msg => {
-                error = true;
-                console.log("Find error in remove user: ", msg);
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send("User lookup failed.");
-            });
-
-        console.log(ret)
-        if (ret == null) {
-            res.status(RESPONSE.NOT_FOUND).send(`User to be removed with email ${email} does not exists.`);
-            return next();
-        }
-
-        console.log("Removed user: ", ret);
-        res.status(RESPONSE.OK).send(ret);
-        return next();
-    }
-);
-
-
-
-// TODO: confirm if we want to do this.
-// Get from user-info/password. Returns user password
-router.get(
-    '/password/:email',
-    async (req, res, next) => {
-        const email = req.params.email;
-        if (!isValidEmail(email)) {
-            res.status(RESPONSE.BAD_REQUEST).send(`Please enter a valid email.`);
-            return next();
-        }
-        let error = false;
-        const user = await MongoUser
-            .findOne({ "email": email })
-            .select({ "password": 1 })
-            .catch(err => {
-                error = true;
-                console.log("Get user password error: ", err);
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send("Could not get user password.");
-            });
-
-        if (error) return next();
-
-        console.log(user);
-        if (user == null) {
-            res.status(RESPONSE.NOT_FOUND).send(`Could not find user with email ${email}`);
-            return next();
-        }
-        res.status(RESPONSE.OK).send(`Password: ${user.password}`);
+        res.status(RESPONSE.CREATED).send(newUser);
         return next();
     }
 );
 
 // Put to user-info/password. 
 // Update an existing users password.
-// TODO: confirm if security checks (login) will be done at front end
 router.put(
-    "/password/:email/:newPassword",
+    "/update-password/:email/:oldPassword/:newPassword",
     async (req, res, next) => {
         console.log("Handling update user password.");
         const email = req.params.email;
+        const oldPassword = req.params.oldPassword;
         const newPassword = req.params.newPassword;
         if (!isValidEmail(email)) {
             res.status(RESPONSE.BAD_REQUEST).send("Please enter a valid email.");
             return next();
         }
-        // TODO: ask then add logic to check if password is valid
         else if (!newPassword) {
             res.status(RESPONSE.BAD_REQUEST).send("Please enter a valid password.");
             return next();
         }
         let error = false;
         const user = await MongoUser
-            .findOneAndUpdate({ email: email }, { password: newPassword })
+            .findOneAndUpdate({ email: email, password: md5(oldPassword, SECRET) }, { password: md5(newPassword, SECRET) })
             .catch(msg => {
                 error = true;
                 console.log("User password update error: ", msg);
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send(`Could not update password`);
+                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
             });
 
         if (error) return next();
 
         console.log(user);
         if (user == null) {
-            res.status(RESPONSE.NOT_FOUND).send(`Could not find user with email ${email}`);
+            res.status(RESPONSE.INVALID_AUTH).send(`Invalid email or old password.`);
             return next();
         }
         // update password to new password

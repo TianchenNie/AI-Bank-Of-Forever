@@ -6,6 +6,7 @@ import accountInfoRouter from "./routes/account-info.js";
 import transferRouter from "./routes/transfer.js";
 import { RESPONSE } from "./utils.js";
 import { connectToMongoDB } from "./mongodb.js";
+import md5 from "blueimp-md5";
 
 /*
 api/
@@ -25,6 +26,7 @@ const error = {
     val: ""
 };
 
+
 await connectToMongoDB(username, password, error);
 if (error.val != "") {
     throw new Error("database connection " + error.val);
@@ -34,6 +36,7 @@ const app = express();
 
 // http body should be in json format
 app.use(express.json());
+// security checks
 app.use(helmet());
 
 app.get(
