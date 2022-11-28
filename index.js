@@ -4,7 +4,7 @@ import paypal from "paypal-rest-sdk";
 import userInfoRouter from "./routes/user-info.js";
 import accountInfoRouter from "./routes/account-info.js";
 import transferRouter from "./routes/transfer.js";
-import { RESPONSE } from "./utils.js";
+import { RESPONSE, SECRET } from "./utils.js";
 import { connectToMongoDB } from "./mongodb.js";
 import md5 from "blueimp-md5";
 
@@ -21,6 +21,7 @@ console.log("Starting server");
 const PORT = process.env.PORT || 8080;
 const username = process.env.DB_USERNAME || "nietian1";
 const password = process.env.DB_PASSWORD || "Aibank1234";
+
 
 const error = {
     val: ""
