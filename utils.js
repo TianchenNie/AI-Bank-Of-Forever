@@ -9,7 +9,7 @@ export const RESPONSE = Object.freeze({
     SERVICE_UNAVAILABLE: 503,
 });
 
-export const SECRET = "The AI Bank Of Forever Is A Great Bank!"
+export const SECRET = "The AI Bank Of Forever Is A Great Bank!";
 
 export function isValidEmail(email) {
     return /^\S+@\S+\.\S+$/.test(email);

@@ -16,7 +16,7 @@ api/
 ├─ account-info/
 │  ├─ balance
 */
-
+console.log("Starting server");
 // read environment variable to get port, if doesn't exist, use 8080
 const PORT = process.env.PORT || 8080;
 const username = process.env.DB_USERNAME || "nietian1";
