@@ -108,7 +108,7 @@ router.post(
             res.status(RESPONSE.NOT_FOUND).send("Could not find sender.");
             return next();
         }
-        else if (receiver == null) {
+        else if (rcvUser == null) {
             res.status(RESPONSE.NOT_FOUND).send("Could not find receiver.");
             return next();
         }
