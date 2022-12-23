@@ -2,6 +2,7 @@
  * API 1 and 3
  * used to handle internal and external transactions.
  ***************************************************/
+import fetch from "node-fetch";
 import {
     PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, RESPONSE, SERVER_BASE_URL,
     isValidTransferAmount, isValidRequestAmount, twoDecimals, SECRET
