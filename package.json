@@ -19,7 +19,9 @@
   },
   "homepage": "https://github.com/TianchenNie/AI-Bank-Of-Forever#readme",
   "dependencies": {
+    "@paypal/checkout-server-sdk": "^1.0.3",
     "blueimp-md5": "^2.19.0",
+    "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "helmet": "^6.0.0",
     "joi": "^17.7.0",
@@ -27,6 +29,7 @@
     "mongoose": "^6.7.2",
     "morgan": "^1.10.0",
     "node-fetch": "^3.3.0",
-    "paypal-rest-sdk": "^1.8.1"
+    "paypal-rest-sdk": "^1.8.1",
+    "uuid": "^9.0.0"
   }
 }

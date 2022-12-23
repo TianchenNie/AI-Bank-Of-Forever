@@ -1,3 +1,7 @@
+import dontenv from "dotenv";
+
+dontenv.config();
+
 export const RESPONSE = Object.freeze({
     OK: 200,
     CREATED: 201,
@@ -9,20 +13,28 @@ export const RESPONSE = Object.freeze({
     SERVICE_UNAVAILABLE: 503,
 });
 
-export const SECRET = "The AI Bank Of Forever Is A Great Bank!";
+export const PORT = process.env.PORT;
+export const DB_USERNAME = process.env.DB_USERNAME;
+export const DB_PASSWORD = process.env.DB_PASSWORD;
+export const SECRET = process.env.MD5_SECRET;
+export const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID;
+export const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET;
+export const SERVER_BASE_URL = process.env.SERVER_BASE_URL;
 
 export function isValidEmail(email) {
     return /^\S+@\S+\.\S+$/.test(email);
 }
 
-export function isValidMoneyAmount(num) {
-    return typeof num == "string" && /^[-]{0,1}(\d*)\.(\d){2}$/.test(num);
-}
-
-/* Tranfer amount can only be a postive whole number, or a postive 2 decimal number */
+/* Transfer amount can only be a postive whole number, or a postive 2 decimal number */
 export function isValidTransferAmount(num) {
     const atMostTwoDecimals = /^\d+(\.\d{1,2})?$/;
     return typeof num == "number" && num >= 0 && atMostTwoDecimals.test(String(num));
+}
+
+/* Request amount can only be a postive whole number, or a postive 2 decimal number, and must be less than 9999999.99 */
+export function isValidRequestAmount(num) {
+    const atMostTwoDecimals = /^\d+(\.\d{1,2})?$/;
+    return typeof num == "number" && num >= 0 && num <= 9999999.99 && atMostTwoDecimals.test(String(num));
 }
 
 // Round num to two decimals, deals with invalid addition error e.g. 0.1 + 0.2

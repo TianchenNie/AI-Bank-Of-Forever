@@ -62,3 +62,16 @@ router.put(
         return next();
     }
 );
+
+// payment_source: {
+//     paypal: {
+//         experience_context: {
+//             payment_method_preference: "IMMEDIATE_PAYMENT_REQUIRED",
+//             shipping_preference: "NO_SHIPPING",
+//             payment_method_selected: "PAYPAL",
+//             landing_page: "LOGIN",
+//             user_action: "PAY_NOW",
+//             return_url: `http://localhost:8080/api/transfer/external/capture-request/${uniqueId}`,
+//         }
+//     }
+// },

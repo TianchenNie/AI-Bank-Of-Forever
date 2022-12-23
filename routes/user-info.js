@@ -3,7 +3,7 @@
  * address, cellphone, email, create new user etc.
  ***************************************************/
 import { RESPONSE, isValidEmail, SECRET } from "../utils.js";
-import { MongoUser, createUserInDB } from "../mongodb.js";
+import { User, createUserInDB } from "../mongodb.js";
 import express from "express";
 import md5 from "blueimp-md5";
 
@@ -17,7 +17,7 @@ router.get(
     async (req, res, next) => {
         let error = false;
         console.log("Fetching all users.");
-        let users = await MongoUser
+        let users = await User
             .find({})
             .catch(err => {
                 res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
@@ -52,11 +52,10 @@ router.put(
 
         // check if user already exists in database
         let error = false;
-        const userExists = await MongoUser
+        const userExists = await User
             .exists({ "email": email })
             .catch(msg => {
                 error = true;
-                console.log("User find error in user-info put: ", msg);
                 res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
             });
 
@@ -71,17 +70,16 @@ router.put(
             email: email,
             password: md5(password, SECRET),
             balance: 0.00,
+            moneyRequestHistory: []
         };
 
         const userTable = await createUserInDB(newUser)
             .catch(err => {
                 error = true;
-                console.error("User creation error: ", err);
                 res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
             });
 
         if (error) return next();
-        console.log("Created user: ", userTable);
         res.status(RESPONSE.CREATED).send(newUser);
         return next();
     }
@@ -92,7 +90,6 @@ router.put(
 router.put(
     "/update-password/:email/:oldPassword/:newPassword",
     async (req, res, next) => {
-        console.log("Handling update user password.");
         const email = req.params.email;
         const oldPassword = req.params.oldPassword;
         const newPassword = req.params.newPassword;
@@ -105,7 +102,7 @@ router.put(
             return next();
         }
         let error = false;
-        const user = await MongoUser
+        const user = await User
             .findOneAndUpdate({ email: email, password: md5(oldPassword, SECRET) }, { password: md5(newPassword, SECRET) })
             .catch(msg => {
                 error = true;
