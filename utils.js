@@ -13,13 +13,13 @@ export const RESPONSE = Object.freeze({
     SERVICE_UNAVAILABLE: 503,
 });
 
-export const PORT = process.env.PORT;
+export const PORT = process.env.LIVE ? process.env.LIVE_PORT : process.env.LOCAL_PORT;
 export const DB_USERNAME = process.env.DB_USERNAME;
 export const DB_PASSWORD = process.env.DB_PASSWORD;
 export const SECRET = process.env.MD5_SECRET;
 export const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID;
 export const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET;
-export const SERVER_BASE_URL = process.env.SERVER_BASE_URL;
+export const SERVER_BASE_URL = process.env.LIVE ? process.env.SERVER_BASE_URL : LOCALHOST_BASE_URL;
 
 export function isValidEmail(email) {
     return /^\S+@\S+\.\S+$/.test(email);
