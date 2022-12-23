@@ -287,7 +287,7 @@ router.post(
             },
 
         });
-
+	console.log("Return url: " + `${SERVER_BASE_URL}/api/transfer/external/capture-request/${requestorEmail}/${uniqueId}`);
         const order = await paypalClient
             .execute(request)
             .catch(err => {
@@ -335,7 +335,8 @@ router.post(
 router.get(
     "/external/capture-request/:email/:uniqueId",
     async (req, res, next) => {
-        let error = false;
+        console.log("Capturing request.");
+	let error = false;
         const email = req.params.email;
         const uniqueId = req.params.uniqueId;
         if (!uuid.validate(uniqueId)) {
