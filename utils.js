@@ -19,7 +19,7 @@ export const DB_PASSWORD = process.env.DB_PASSWORD;
 export const SECRET = process.env.MD5_SECRET;
 export const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID;
 export const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET;
-export const SERVER_BASE_URL = process.env.LIVE ? process.env.SERVER_BASE_URL : LOCALHOST_BASE_URL;
+export const SERVER_BASE_URL = process.env.LIVE ? process.env.SERVER_BASE_URL : process.env.LOCALHOST_BASE_URL;
 
 export function isValidEmail(email) {
     return /^\S+@\S+\.\S+$/.test(email);
