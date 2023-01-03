@@ -366,8 +366,8 @@ router.get(
             return next();
         }
         const captureRes = await (capturePayment(order.captureUrl, accessToken));
-        console.log("Capture Payment Response: ", captureRes);
-        if (captureRes == null) {
+        console.log("Capture Payment Response: ", JSON.stringify(captureRes, null, 2));
+	if (captureRes == null) {
             req.status(RESPONSE.INTERNAL_SERVER_ERR).send();
             return next();
         }
@@ -386,7 +386,7 @@ router.get(
             });
 
         if (error) return next();
-
+  
         res.status(RESPONSE.OK).send("Transfer Success.");
         return next();
     }
