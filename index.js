@@ -3,29 +3,34 @@ import helmet from "helmet";
 import userInfoRouter from "./routes/user-info.js";
 import accountInfoRouter from "./routes/account-info.js";
 import transferRouter from "./routes/transfer.js";
-import { DB_USERNAME, DB_PASSWORD, PORT ,RESPONSE } from "./utils.js";
-import { connectToMongoDB } from "./mongodb.js";
+import testingRouter from "./routes/testing.js";
+import { DB_USERNAME, DB_PASSWORD, PORT, RESPONSE } from "./utils.js";
+import { initializeMongoDB } from "./mongodb.js";
 
 /*
 api/
 ├─ user-info/
-│  ├─ password
 ├─ transfer/
 ├─ account-info/
-│  ├─ balance
 */
 console.log("Starting server");
 
-
-await connectToMongoDB(DB_USERNAME, DB_PASSWORD);
+await initializeMongoDB(DB_USERNAME, DB_PASSWORD);
 
 const app = express();
 
 // http packet body should be in json format
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 
 // security checks
 app.use(helmet());
+
+app.use((req, res, next) => {
+    res.append('Access-Control-Allow-Origin', ["*"]);
+    res.append("Access-Control-Allow-Methods", "GET,POST,DELETE,PUT");
+    res.append("Access-Control-Allow-Headers", "Content-Type");
+    return next();
+});
 
 app.get(
     '/api',
@@ -38,6 +43,9 @@ app.get(
 app.use('/api/user-info', userInfoRouter);
 app.use('/api/transfer', transferRouter);
 app.use('/api/account-info', accountInfoRouter);
+app.use('/api/testing', testingRouter);
+
+console.log("Routers set.");
 
 app.listen(
     PORT,

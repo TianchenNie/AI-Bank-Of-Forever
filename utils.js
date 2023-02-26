@@ -21,14 +21,14 @@ export const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID;
 export const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET;
 export const SERVER_BASE_URL = process.env.LIVE ? process.env.SERVER_BASE_URL : process.env.LOCALHOST_BASE_URL;
 
-export function isValidEmail(email) {
-    return /^\S+@\S+\.\S+$/.test(email);
+export function isValidEmailFormat(email) {
+    return typeof email == "string" && /^\S+@\S+\.\S+$/.test(email);
 }
 
 /* Transfer amount can only be a postive whole number, or a postive 2 decimal number */
-export function isValidTransferAmount(num) {
+export function isValidMoneyAmount(num) {
     const atMostTwoDecimals = /^\d+(\.\d{1,2})?$/;
-    return typeof num == "number" && num >= 0 && atMostTwoDecimals.test(String(num));
+    return typeof num == "string" && atMostTwoDecimals.test(num);
 }
 
 /* Request amount can only be a postive whole number, or a postive 2 decimal number, and must be less than 9999999.99 */
@@ -37,7 +37,34 @@ export function isValidRequestAmount(num) {
     return typeof num == "number" && num >= 0 && num <= 9999999.99 && atMostTwoDecimals.test(String(num));
 }
 
-// Round num to two decimals, deals with invalid addition error e.g. 0.1 + 0.2
-export function twoDecimals(num) {
+// Round num to two decimals, deals with invalid float addition error e.g. 0.1 + 0.2
+export function roundToTwoDecimals(num) {
     return parseFloat(num.toFixed(2));
+}
+
+export function generateError(msg) {
+    return {
+        error: msg
+    };
+}
+
+export function parseUserRequestHistory(userDocument) {
+    if (!Array.isArray(userDocument.moneyRequestHistory)) {
+        console.error("Expcted user request history to be array...");
+        return [];
+    }
+    const userRequestHistory = [];
+    for (const entry of userDocument.moneyRequestHistory) {
+        userRequestHistory.push({
+            serverId: entry.serverId,
+            orderId: entry.orderId,
+            status: entry.status,
+            amount: entry.amount.toString(),
+            captureUrl: entry.captureUrl,
+            viewUrl: entry.viewUrl,
+            timeCreated: entry.timeCreated,
+            timeCaptured: entry.timeCaptured,
+        });
+    }
+    return userRequestHistory;
 }

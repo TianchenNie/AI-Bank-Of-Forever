@@ -1,14 +1,30 @@
 import mongoose from "mongoose";
+import BigNumber from "bignumber.js";
+import { assert } from "console";
 
-const userSchema = new mongoose.Schema({
+const userSchemaLayout = {
     email: String,
     password: String,
-    balance: Number,
+    balance: {
+        type: mongoose.Types.Decimal128,
+        set: (value) => {
+            assert(typeof value == 'string', "Value passed to balance must be a string!");
+            const bigValue = new BigNumber(value);
+            return mongoose.Types.Decimal128.fromString(bigValue.toFixed(2));
+        }
+    },
     moneyRequestHistory: [{
         serverId: String,
         orderId: String,
         status: String,
-        amount: Number,
+        amount: {
+            type: mongoose.Types.Decimal128,
+            set: (value) => {
+                assert(typeof value == 'string', "Value passed to money request history must be a string!");
+                const bigValue = new BigNumber(value);
+                return mongoose.Types.Decimal128.fromString(bigValue.toFixed(2));
+            }
+        },
         captureUrl: String,
         viewUrl: String,
         timeCreated: Date,
@@ -18,36 +34,32 @@ const userSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
-});
+};
 
-export const User = mongoose.model('User', userSchema);
+const rwConcernLevels = {
+    // writeConcern: {
+    //     w: 1, // set the write concern level
+    //     // j: true, // enable write journaling for extra durability
+    // },
+    readConcern: { level: 'linearizable' },
+};
 
-export async function connectToMongoDB(username, password) {
+const userSchema = new mongoose.Schema(userSchemaLayout, rwConcernLevels);
+
+export let dbClient;
+export let User;
+
+/* initializes connection and schema model to mongo db instance described by username password. */
+/* This should only be called once on setup in index.js */
+export async function initializeMongoDB(username, password) {
+    const connectOptions = {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        
+    };
     // const token = "mongodb+srv://utkrisli:Wanting521@cluster0.kdtesgu.mongodb.net/?retryWrites=true&w=majority";
     const accessToken = `mongodb+srv://${username}:${password}@cluster0.bazpvfn.mongodb.net/?retryWrites=true&w=majority`;
-    return mongoose.disconnect()
-        .then(() => mongoose.connect(accessToken))
-        .then(() => console.log(`Connected ${username} to MongoDB`))
-        .catch(err => {
-            throw new Error("database connection " + err);
-        });
-}
-
-export async function createUserInDB(user) {
-    const newUser = new User(user);
-    const userTable = await newUser.save();
-    return userTable;
-}
-
-export async function userExists(email) {
-    let error = false;
-    const exists = await User
-        .exists({ email: email })
-        .catch(msg => {
-            error = true;
-            console.log("User balance find error: ", msg);
-        });
-    if (error) return -1;
-    // const password = req.params.password;
-    return exists;
+    dbClient = await mongoose.createConnection(accessToken, connectOptions).asPromise();
+    User = dbClient.model('User', userSchema, 'users');
+    console.log("Initialized mongoDB instance");
 }

@@ -4,7 +4,7 @@ router.get(
     '/password/:email',
     async (req, res, next) => {
         const email = req.params.email;
-        if (!isValidEmail(email)) {
+        if (!isValidEmailFormat(email)) {
             res.status(RESPONSE.BAD_REQUEST).send(`Please enter a valid email.`);
             return next();
         }
@@ -38,7 +38,7 @@ router.put(
         const email = req.params.email;
 
         // check if parameters are valid
-        if (!email || !isValidEmail(email)) {
+        if (!email || !isValidEmailFormat(email)) {
             res.status(RESPONSE.BAD_REQUEST).send("Please enter a valid email.");
             return next();
         }
@@ -59,6 +59,44 @@ router.put(
             return next();
         }
         res.status(RESPONSE.OK).send(ret);
+        return next();
+    }
+);
+
+// Put to user-info/password. 
+// Update an existing users password.
+router.put(
+    "/update-password/:email/:oldPassword/:newPassword",
+    async (req, res, next) => {
+        const email = req.params.email;
+        const oldPassword = req.params.oldPassword;
+        const newPassword = req.params.newPassword;
+        if (!isValidEmailFormat(email)) {
+            res.status(RESPONSE.BAD_REQUEST).send("Please enter a valid email.");
+            return next();
+        }
+        else if (!newPassword) {
+            res.status(RESPONSE.BAD_REQUEST).send("Please enter a valid password.");
+            return next();
+        }
+        let error = false;
+        const user = await User
+            .findOneAndUpdate({ email: email, password: md5(oldPassword, SECRET) }, { password: md5(newPassword, SECRET) })
+            .catch(msg => {
+                error = true;
+                console.log("User password update error: ", msg);
+                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
+            });
+
+        if (error) return next();
+
+        console.log(user);
+        if (user == null) {
+            res.status(RESPONSE.INVALID_AUTH).send(`Invalid email or old password.`);
+            return next();
+        }
+        // update password to new password
+        res.status(RESPONSE.OK).send(`Updated password to: ${newPassword}`);
         return next();
     }
 );

@@ -5,14 +5,13 @@
 import fetch from "node-fetch";
 import {
     PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, RESPONSE, SERVER_BASE_URL,
-    isValidTransferAmount, isValidRequestAmount, twoDecimals, SECRET
+    isValidMoneyAmount, isValidRequestAmount, roundToTwoDecimals, generateError, SECRET, isValidEmailFormat
 } from "../utils.js";
 import * as uuid from "uuid";
 import paypal from "@paypal/checkout-server-sdk";
-import { User } from "../mongodb.js";
+import { User, dbClient } from "../mongodb.js";
 import express from "express";
 import md5 from "blueimp-md5";
-
 
 // TODO: update after go live, this link is for sandbox environment.
 const base = "https://api.sandbox.paypal.com";
@@ -30,15 +29,15 @@ async function getAccessToken() {
     const clientIdAndSecret = `${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`;
     const base64 = Buffer.from(clientIdAndSecret).toString('base64');
     await fetch(authUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Accept-Language': 'en_US',
-                'Authorization': `Basic ${base64}`,
-            },
-            body: 'grant_type=client_credentials'
-        })
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Accept-Language': 'en_US',
+            'Authorization': `Basic ${base64}`,
+        },
+        body: 'grant_type=client_credentials'
+    })
         .then(response => response.json())
         .then(data => {
             accessToken = data.access_token;
@@ -52,12 +51,12 @@ async function capturePayment(captureUrl) {
     let error = false;
     // const url = `${base}/v2/checkout/orders/${orderId}/capture`;
     const response = await fetch(captureUrl, {
-            method: "post",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${accessToken}`
-            },
-        })
+        method: "post",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`
+        },
+    })
         .catch(err => {
             error = true;
             console.error("Error while fetching capturePayment " + err);
@@ -73,141 +72,6 @@ const router = express.Router();
 
 // TODO: update SandboxEnvironment after we go live.
 const paypalClient = new paypal.core.PayPalHttpClient(new paypal.core.SandboxEnvironment(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET));
-// When a user spends money externally, it goes through the front end and the balance
-// of the master account gets deducted.
-// The frontend further queries the API to deduct the balance of the user that spent the money.
-router.post(
-    "/spend",
-    async (req, res, next) => {
-        const userEmail = req.body.user;
-        const spendAmount = req.body.amount;
-        const password = req.body.password;
-        let error = false;
-        if (!userEmail) {
-            res.status(RESPONSE.BAD_REQUEST).send("Null user email in request.");
-            return next();
-        }
-        if (!isValidTransferAmount(spendAmount)) {
-            res.status(RESPONSE.BAD_REQUEST).send("Amount to transfer is invalid.");
-            return next();
-        }
-        const dbUser = await User
-            .findOne({ email: userEmail })
-            .select({ password: 1, balance: 1 })
-            .catch(msg => {
-                error = true;
-                console.log("Internal spend find error: ", msg);
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
-            });
-
-        if (error) return next();
-        if (dbUser == null) {
-            res.status(RESPONSE.NOT_FOUND).send("User not found.");
-            return next();
-        }
-
-        if (dbUser.password != md5(password, SECRET)) {
-            res.status(RESPONSE.INVALID_AUTH).send("Wrong password.");
-            return next();
-        }
-
-        // this shouldn't happen. Frontend should check that the user has sufficient funds
-        // before letting them spend the money from master account.
-        if (dbUser.balance < spendAmount) {
-            res.status(RESPONSE.BAD_REQUEST).send("Insufficient balance to spend.");
-            return next();
-        }
-
-        await User
-            .findOneAndUpdate({ email: userEmail }, { balance: twoDecimals(dbUser.balance - spendAmount) })
-            .catch(msg => {
-                error = true;
-                console.log("Internal spend update error: ", msg);
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
-            });
-
-        if (error) return next();
-        res.status(RESPONSE.OK).send(`Spend success.`);
-        return next();
-    }
-);
-
-// Perform internal transfer.
-router.post(
-    "/internal",
-    async (req, res, next) => {
-        console.log("Handling internal transfer");
-        const sender = req.body.sender;
-        const receiver = req.body.receiver;
-        const senderpass = req.body.senderPassword;
-        const moneyAmount = req.body.amount;
-        if (!isValidTransferAmount(moneyAmount)) {
-            res.status(RESPONSE.BAD_REQUEST).send("Amount to transfer is invalid.");
-            return next();
-        }
-        let error = false;
-        const sendUser = await User
-            .findOne({ email: sender })
-            .select({ password: 1, balance: 1 })
-            .catch(msg => {
-                error = true;
-                console.log("User balance find error: ", msg);
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
-            });
-
-        if (error) return next();
-
-        const rcvUser = await User
-            .findOne({ email: receiver })
-            .select({ balance: 1 })
-            .catch(msg => {
-                error = true;
-                console.log("User balance find error: ", msg);
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
-            });
-
-        if (error) return next();
-
-        if (sendUser == null) {
-            res.status(RESPONSE.NOT_FOUND).send("Could not find sender.");
-            return next();
-        }
-        else if (rcvUser == null) {
-            res.status(RESPONSE.NOT_FOUND).send("Could not find receiver.");
-            return next();
-        }
-        else if (sendUser.password != md5(senderpass, SECRET)) {
-            res.status(RESPONSE.INVALID_AUTH).send("Sender password invalid.");
-            return next();
-        }
-        else if (sendUser.balance < moneyAmount) {
-            res.status(RESPONSE.BAD_REQUEST).send(`Insufficient funds in account of sending user ${sender}.`);
-            return next();
-        }
-        // perform transfer for internal users
-        await User
-            .findOneAndUpdate({ email: sender }, { balance: twoDecimals(sendUser.balance - moneyAmount) })
-            .catch(msg => {
-                error = true;
-                console.log("Internal transfer balance update error: ", msg);
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
-            });
-
-        if (error) return next();
-
-        await User
-            .findOneAndUpdate({ email: receiver }, { balance: twoDecimals(rcvUser.balance + moneyAmount) })
-            .catch(msg => {
-                error = true;
-                console.log("Internal transfer balance update error: ", msg);
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
-            });
-
-        if (error) return next();
-        res.status(RESPONSE.OK).send(`Transfer success.`);
-        return next();
-    }
-);
 
 
 // Flow: receive request from frontend, create request and return redirect link to user
@@ -287,7 +151,7 @@ router.post(
             },
 
         });
-	console.log("Return url: " + `${SERVER_BASE_URL}/api/transfer/external/capture-request/${requestorEmail}/${uniqueId}`);
+        console.log("Return url: " + `${SERVER_BASE_URL}/api/transfer/external/capture-request/${requestorEmail}/${uniqueId}`);
         const order = await paypalClient
             .execute(request)
             .catch(err => {
@@ -336,7 +200,7 @@ router.get(
     "/external/capture-request/:email/:uniqueId",
     async (req, res, next) => {
         console.log("Capturing request.");
-	let error = false;
+        let error = false;
         const email = req.params.email;
         const uniqueId = req.params.uniqueId;
         if (!uuid.validate(uniqueId)) {
@@ -378,7 +242,7 @@ router.get(
         await User
             .updateOne({ email: email }, {
                 moneyRequestHistory: user.moneyRequestHistory,
-                balance: twoDecimals(user.balance + order.amount)
+                balance: roundToTwoDecimals(user.balance + order.amount)
             })
             .catch(err => {
                 error = true;
@@ -392,5 +256,138 @@ router.get(
     }
 );
 
+// When a user spends money externally, it goes through the front end and the balance
+// of the master account gets deducted.
+// The frontend further queries the API to deduct the balance of the user that spent the money.
+router.post(
+    "/spend",
+    async (req, res, next) => {
+        const userEmail = req.body.email;
+        /* spendAmount should be a string */
+        const spendAmount = req.body.amount;
+        const password = req.body.password;
+        let error = false;
+        if (!isValidEmailFormat(userEmail)) {
+            res.status(RESPONSE.BAD_REQUEST).send(generateError("Invalid user email."));
+            return next();
+        }
+        if (!isValidMoneyAmount(spendAmount)) {
+            res.status(RESPONSE.BAD_REQUEST).send(generateError("Invalid amount to spend."));
+            return next();
+        }
+
+        
+        const user = await User
+            .findOneAndUpdate({ email: userEmail, password: md5(password, SECRET), balance: { $gte: spendAmount } },
+                { $inc: { balance: "-" + spendAmount } },
+                { new: true }
+            )
+            .catch(msg => {
+                error = true;
+                console.log("Internal spend update error: ", msg);
+                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
+            });
+
+        if (error) return next();
+        if (user == null) {
+            res.status(RESPONSE.INVALID_AUTH).send(generateError("Invalid credentials or insufficient funds."));
+            return next();
+        }
+
+        /* send the new user balance as response. */
+        res.status(RESPONSE.OK).send({
+            balance: user.balance.toString()
+        });
+        return next();
+    }
+);
+
+
+// Perform internal transfer.
+router.post(
+    "/internal",
+    async (req, res, next) => {
+        // console.log("Handling internal transfer with write concern: ", dbClient.writeConcern);
+
+        const sender = req.body.sender;
+        const receiver = req.body.receiver;
+        const senderpass = req.body.senderPassword;
+        const moneyAmount = req.body.amount;
+        // console.log("BODY: ", req.body);
+        if (!isValidEmailFormat(sender)) {
+            res.status(RESPONSE.BAD_REQUEST).send(generateError("Invalid sender email."));
+            return next();
+        }
+        if (!isValidEmailFormat(receiver)) {
+            res.status(RESPONSE.BAD_REQUEST).send(generateError("Invalid receiver email."));
+            return next();
+        }
+        if (!isValidMoneyAmount(moneyAmount)) {
+            res.status(RESPONSE.BAD_REQUEST).send(generateError("Amount to transfer is invalid."));
+            return next();
+        }
+        if (typeof senderpass != "string") {
+            res.status(RESPONSE.BAD_REQUEST).send(generateError("Invalid sender password format."));
+            return next();
+        }
+        let error = false;
+
+        /* check if receiver exists */
+        const receiveUser = await User
+            .findOne({ email: receiver })
+            .catch(msg => {
+                error = true;
+                // console.log("User balance find error: ", msg);
+                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
+            });
+
+        if (error) return next();
+
+        if (receiveUser == null) {
+            res.status(RESPONSE.NOT_FOUND).send(generateError(`Could not find receiving user: ${receiver}.`));
+            return next();
+        }
+
+        const session = await dbClient.startSession();
+        await session.startTransaction();
+        try {
+            const sendUserUpdated = await User
+                .findOneAndUpdate({ email: sender, password: md5(senderpass, SECRET), balance: { $gte: moneyAmount } },
+                    { $inc: { balance: "-" + moneyAmount } },
+                    { session: session, new: true }
+                );
+            // console.log("Finished updating sender");
+            if (sendUserUpdated == null) {
+                await session.abortTransaction();
+                await session.endSession();
+                res.status(RESPONSE.NOT_FOUND).send(generateError("Invalid sender credentials or insufficient funds."));
+                return next();
+            }
+
+            const receiveUserUpdated = await User
+                .findOneAndUpdate({ email: receiver },
+                    { $inc: { balance: moneyAmount } },
+                    { session: session, new: true }
+                );
+            // console.log("Finished updating receiver");
+
+            await session.commitTransaction();
+            await session.endSession();
+            res.status(RESPONSE.OK).send({
+                senderBalance: sendUserUpdated.balance.toString(),
+                receiverBalance: receiveUserUpdated.balance.toString()
+            });
+            return next();
+
+        }
+        catch (error) {
+            console.error("Error: ", error);
+            await session.abortTransaction();
+            await session.endSession();
+            res.status(RESPONSE.INTERNAL_SERVER_ERR).send(generateError(error));
+            return next();
+        }
+    }
+);
 
 export default router;

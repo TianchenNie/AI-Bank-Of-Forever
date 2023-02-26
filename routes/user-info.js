@@ -2,8 +2,8 @@
  * used for user info like password, 
  * address, cellphone, email, create new user etc.
  ***************************************************/
-import { RESPONSE, isValidEmail, SECRET } from "../utils.js";
-import { User, createUserInDB } from "../mongodb.js";
+import { RESPONSE, isValidEmailFormat, isValidMoneyAmount, SECRET } from "../utils.js";
+import { User, dbClient } from "../mongodb.js";
 import express from "express";
 import md5 from "blueimp-md5";
 
@@ -12,35 +12,18 @@ import md5 from "blueimp-md5";
 // handle all routes under /api/user-info
 const router = express.Router();
 
-router.get(
-    '',
-    async (req, res, next) => {
-        let error = false;
-        console.log("Fetching all users.");
-        let users = await User
-            .find({})
-            .catch(err => {
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
-            });
 
-        if (error) return next();
-        res.status(RESPONSE.OK).send(users);
-        return next();
-    }
-);
-
-// PUT to user-info. Create a new user.
-// Idempotent as in duplicate users are not allowed to be created.
-// used for testing purposes
-router.put(
-    '/new/:email/:password',
+// POST to user-info. Create a new user.
+// used for testing purposes.
+// Should be perfectly atomic
+router.post(
+    '/new',
     async (req, res, next) => {
-        console.log("Handling create new user.");
-        const email = req.params.email;
-        const password = req.params.password;
+        const email = req.body.email;
+        const password = req.body.password;
 
         // check if parameters are valid
-        if (!email || !isValidEmail(email)) {
+        if (!email || !isValidEmailFormat(email)) {
             res.status(RESPONSE.BAD_REQUEST).send("Please enter a valid email.");
             return next();
         }
@@ -50,76 +33,44 @@ router.put(
             return next();
         }
 
-        // check if user already exists in database
-        let error = false;
-        const userExists = await User
-            .exists({ "email": email })
-            .catch(msg => {
-                error = true;
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
-            });
+        const session = await dbClient.startSession();
+        await session.startTransaction();
+        try {
+            const userExists = await User
+                .findOne({ "email": email })
+                .session(session);
 
-        if (error) return next();
-        if (userExists) {
-            res.status(RESPONSE.CONFLICT).send(`User account with email ${email} already exists.`);
+            if (userExists) {
+                await session.abortTransaction();
+                await session.endSession();
+                res.status(RESPONSE.CONFLICT).send(`User account with email ${email} already exists.`);
+                return next();
+            }
+
+            const newUser = {
+                email: email,
+                password: md5(password, SECRET),
+                balance: "0.00",
+                moneyRequestHistory: []
+            };
+
+            const newUserModel = new User(newUser);
+
+            await newUserModel.save({ session });
+
+            await session.commitTransaction();
+            await session.endSession();
+
+            res.status(RESPONSE.CREATED).send(newUser);
+            return next();
+
+        } 
+        catch (error) {
+            await session.abortTransaction();
+            await session.endSession();
+            res.status(RESPONSE.INTERNAL_SERVER_ERR).send(generateError(error));
             return next();
         }
-
-        // create new user and insert into database
-        const newUser = {
-            email: email,
-            password: md5(password, SECRET),
-            balance: 0.00,
-            moneyRequestHistory: []
-        };
-
-        const userTable = await createUserInDB(newUser)
-            .catch(err => {
-                error = true;
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
-            });
-
-        if (error) return next();
-        res.status(RESPONSE.CREATED).send(newUser);
-        return next();
-    }
-);
-
-// Put to user-info/password. 
-// Update an existing users password.
-router.put(
-    "/update-password/:email/:oldPassword/:newPassword",
-    async (req, res, next) => {
-        const email = req.params.email;
-        const oldPassword = req.params.oldPassword;
-        const newPassword = req.params.newPassword;
-        if (!isValidEmail(email)) {
-            res.status(RESPONSE.BAD_REQUEST).send("Please enter a valid email.");
-            return next();
-        }
-        else if (!newPassword) {
-            res.status(RESPONSE.BAD_REQUEST).send("Please enter a valid password.");
-            return next();
-        }
-        let error = false;
-        const user = await User
-            .findOneAndUpdate({ email: email, password: md5(oldPassword, SECRET) }, { password: md5(newPassword, SECRET) })
-            .catch(msg => {
-                error = true;
-                console.log("User password update error: ", msg);
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
-            });
-
-        if (error) return next();
-
-        console.log(user);
-        if (user == null) {
-            res.status(RESPONSE.INVALID_AUTH).send(`Invalid email or old password.`);
-            return next();
-        }
-        // update password to new password
-        res.status(RESPONSE.OK).send(`Updated password to: ${newPassword}`);
-        return next();
     }
 );
 
