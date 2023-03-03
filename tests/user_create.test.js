@@ -1,40 +1,26 @@
-import { SECRET } from "../utils.js";
 import * as chai from "chai";
-import md5 from "blueimp-md5";
-import { createUsersWithDuplicates, clearCollection } from "./test_utils.js";
-
-const numUsers = 50;
+import { createUsersWithDuplicates, clearCollection, getAllUsers } from "./test_utils.js";
+import bcrypt from "bcrypt";
+const numUsers = 100;
 describe("** User Creation Test Suite **", function () {
     const expect = chai.expect;
-    const postUrl = "http://localhost:8080/api/user-info/new";
-    const getUrl = "http://localhost:8080/api/testing/all-users";
-    const clearUrl = "http://localhost:8080/api/testing/clear-users";
-    it(`1. Create ${numUsers} users with duplicates on localhost.`, async function () {
-        this.timeout(5000000);
+    const baseUrl = process.env.TEST_SERVER == '1' ? "http://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
+    const postUrl = baseUrl + "/user-info/new";
+    const getUrl = baseUrl + "/testing/all-users";
+    const clearUrl = baseUrl + "/testing/clear-users";
+    it(`1. Create ${numUsers} users with duplicates on ${baseUrl}.`, async function () {
+        this.timeout(0);
         await clearCollection(clearUrl);
         const generatedUsers = await createUsersWithDuplicates(postUrl, numUsers);
-        let retrieved;
 
         /* fetch all users in the database */
-        await fetch(getUrl, {
-            method: 'GET',
-            mode: 'cors', 
-            cache: 'no-cache',
-            credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            redirect: 'follow',
-            referrerPolicy: 'no-referrer', 
-        })
-        .then(responseString => responseString.json())
-        .then(response => retrieved = response)
-        .catch(err => console.error(err));
+        const retrieved = await getAllUsers(getUrl);
 
+        console.log(`Fetched ${retrieved.length} Users: `, retrieved);
         const expectedUsers = generatedUsers.map(user => {
             return {
                 email: user.email,
-                password: md5(user.password, SECRET)
+                password: user.password
             };
         });
 
@@ -64,7 +50,14 @@ describe("** User Creation Test Suite **", function () {
             return 0;
         });
 
-        expect(actualUsers).to.deep.equal(expectedUsers);
+        expect(expectedUsers.length).to.equal(actualUsers.length);
+
+        for (let i = 0; i < expectedUsers.length; i++) {
+            // console.log(`In for loop index: ${i}`);
+            const isCorrectPass = bcrypt.compareSync(expectedUsers[i].password, actualUsers[i].password);
+            expect(isCorrectPass).to.equal(true);
+            expect(expectedUsers[i].email).to.equal(actualUsers[i].email);
+        }
         await clearCollection(clearUrl);
     });
 });

@@ -2,19 +2,21 @@ import * as chai from "chai";
 import { createUsersWithRandBalances, clearCollection, generateError } from "./test_utils.js";
 import { isValidMoneyAmount, SECRET } from "../utils.js";
 import BigNumber from "bignumber.js";
-import md5 from "blueimp-md5";
+import bcrypt from "bcrypt";
 
 const numUsers = 50;
-const numIterations = numUsers * 5;
+const numIterations = numUsers * 10;
 describe("** Transfer Test Suite **", function () {
+    this.maxDiff = 10 ** 6;
     const expect = chai.expect;
-    const clearUrl = "http://localhost:8080/api/testing/clear-users";
-    it(`1. Spend money randomly ${numIterations} times on a set of ${numUsers} users on localhost.`, async function () {
-        const getUrl = "http://localhost:8080/api/testing/all-users";
-        const spendUrl = "http://localhost:8080/api/transfer/spend";
-        this.timeout(5000000);
+    const baseUrl = process.env.TEST_SERVER == '1' ? "http://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
+    const clearUrl = baseUrl + "/testing/clear-users";
+    it(`1. Spend money randomly ${numIterations} times on a set of ${numUsers} users on ${baseUrl}.`, async function () {
+        const getUrl = baseUrl + "/testing/all-users";
+        const spendUrl = baseUrl + "/transfer/spend";
+        this.timeout(0);
         await clearCollection(clearUrl);
-        const generatedUsers = await createUsersWithRandBalances("http://localhost:8080/api/testing/new-with-balance", numUsers);
+        const generatedUsers = await createUsersWithRandBalances(baseUrl + "/testing/new-with-balance", numUsers);
         const expectedReponses = [];
         const receivedResponses = [];
         for (let i = 0; i < numIterations; i++) {
@@ -29,29 +31,29 @@ describe("** Transfer Test Suite **", function () {
             let email = user.email;
             if (wrongEmailFormat) {
                 const rand = Math.random();
-                email = rand >= 0.5 ? user.email.replace('@', '') : user.email.replace('.', '');
+                email = rand >= 0.5 ? user.email.replaceAll('@', '') : user.email.replaceAll('.', '');
             }
             else if (nonExistentEmail) {
-                email = 'this_is_wrong' + user.email;
+                email = 'this_is_wrong_' + user.email;
             }
             const rand = new BigNumber(Math.random());
-            const amount = rand.multipliedBy(Math.random() * 10 ** 9).multipliedBy(Math.random() * 10 ** 9);
+            const amount = rand.multipliedBy(Math.random() * (10 ** 9)).multipliedBy(Math.random() * (10 ** 9));
             const body = {
                 email: email,
-                password: !wrongPassword ? user.password : 'this_is_wrong' + user.password,
+                password: !wrongPassword ? user.password : 'this_is_wrong_' + user.password,
                 amount: Math.random() <= 0.3 ? amount.toFixed(3) : amount.toFixed(2),
             };
             if (wrongEmailFormat) {
-                expectedReponses.push(generateError("Invalid user email."));
+                expectedReponses.push(generateError("Invalid user email format."));
             }
             else if (!isValidMoneyAmount(body.amount)) {
                 expectedReponses.push(generateError("Invalid amount to spend."));
             }
             else if (nonExistentEmail) {
-                expectedReponses.push(generateError("Invalid credentials or insufficient funds."));
+                expectedReponses.push(generateError(`Could not find user with email ${email}.`));
             }
             else if (wrongPassword) {
-                expectedReponses.push(generateError("Invalid credentials or insufficient funds."));
+                expectedReponses.push(generateError("Incorrect user password."));
             }
             else if (amount.isGreaterThan(new BigNumber(user.balance))) {
                 expectedReponses.push(generateError("Invalid credentials or insufficient funds."));
@@ -110,7 +112,7 @@ describe("** Transfer Test Suite **", function () {
         const expectedUsers = generatedUsers.map((user) => {
             return {
                 email: user.email,
-                password: md5(user.password, SECRET),
+                password: user.password,
                 balance: user.balance
             }
         });
@@ -122,15 +124,22 @@ describe("** Transfer Test Suite **", function () {
             return user1.email < user2.email;
         });
 
-        expect(expectedUsers).to.deep.equal(dbAllUsers);
+        expect(expectedUsers.length).to.equal(dbAllUsers.length);
+        for (let i = 0; i < expectedUsers.length; i++) {
+            const isCorrectPass = bcrypt.compareSync(expectedUsers[i].password, dbAllUsers[i].password);
+            expect(isCorrectPass).to.equal(true);
+            expect(expectedUsers[i].email).to.equal(dbAllUsers[i].email);
+            expect(expectedUsers[i].balance).to.equal(dbAllUsers[i].balance);
+        }
+        // expect(expectedUsers).to.deep.equal(dbAllUsers);
         await clearCollection(clearUrl);
     });
-    it(`2. Perform ${numIterations} of internal transfers on a set of ${numUsers} users on localhost.`, async function () {
-        const getUrl = "http://localhost:8080/api/testing/all-users";
-        const transferUrl = "http://localhost:8080/api/transfer/internal";
-        this.timeout(5000000);
+    it(`2. Perform ${numIterations} of internal transfers on a set of ${numUsers} users on ${baseUrl}.`, async function () {
+        const getUrl = baseUrl + "/testing/all-users";
+        const transferUrl = baseUrl + "/transfer/internal";
+        this.timeout(0);
         await clearCollection(clearUrl);
-        const generatedUsers = await createUsersWithRandBalances("http://localhost:8080/api/testing/new-with-balance", numUsers);
+        const generatedUsers = await createUsersWithRandBalances(baseUrl + "/testing/new-with-balance", numUsers);
         const expectedReponses = [];
         const receivedResponses = [];
         for (let i = 0; i < numIterations; i++) {
@@ -153,33 +162,33 @@ describe("** Transfer Test Suite **", function () {
             let senderEmail = sender.email;
             if (wrongEmailFormat) {
                 const rand = Math.random();
-                senderEmail = rand >= 0.5 ? sender.email.replace('@', '') : sender.email.replace('.', '');
+                senderEmail = rand >= 0.5 ? sender.email.replaceAll('@', '') : sender.email.replaceAll('.', '');
             }
             else if (nonExistentEmail) {
-                senderEmail = 'this_is_wrong' + sender.email;
+                senderEmail = 'this_is_wrong_' + sender.email;
             }
             const rand = new BigNumber(Math.random());
             const amount = rand.multipliedBy(Math.random() * 10 ** 9).multipliedBy(Math.random() * 10 ** 9);
             const body = {
                 sender: senderEmail,
                 receiver: receiver.email,
-                senderPassword: !wrongPassword ? sender.password : 'this_is_wrong' + sender.password,
+                senderPassword: !wrongPassword ? sender.password : 'this_is_wrong_' + sender.password,
                 amount: Math.random() <= 0.3 ? amount.toFixed(3) : amount.toFixed(2),
             };
             if (wrongEmailFormat) {
-                expectedReponses.push(generateError("Invalid sender email."));
+                expectedReponses.push(generateError("Invalid sender email format."));
             }
             else if (!isValidMoneyAmount(body.amount)) {
                 expectedReponses.push(generateError("Amount to transfer is invalid."));
             }
             else if (nonExistentEmail) {
-                expectedReponses.push(generateError("Invalid sender credentials or insufficient funds."));
+                expectedReponses.push(generateError(`Could not find sender with email ${senderEmail}.`));
             }
             else if (wrongPassword) {
-                expectedReponses.push(generateError("Invalid sender credentials or insufficient funds."));
+                expectedReponses.push(generateError("Incorrect sender password."));
             }
             else if (amount.isGreaterThan(new BigNumber(sender.balance))) {
-                expectedReponses.push(generateError("Invalid sender credentials or insufficient funds."));
+                expectedReponses.push(generateError("Insufficient funds in sender account."));
             }
             /* if all checks pass, update user balance */
             else {
@@ -239,7 +248,7 @@ describe("** Transfer Test Suite **", function () {
         const expectedUsers = generatedUsers.map((user) => {
             return {
                 email: user.email,
-                password: md5(user.password, SECRET),
+                password: user.password,
                 balance: user.balance
             }
         });
@@ -251,7 +260,15 @@ describe("** Transfer Test Suite **", function () {
             return user1.email < user2.email;
         });
 
-        expect(expectedUsers).to.deep.equal(dbAllUsers);
+        expect(expectedUsers.length).to.equal(dbAllUsers.length);
+        for (let i = 0; i < expectedUsers.length; i++) {
+            const isCorrectPass = bcrypt.compareSync(expectedUsers[i].password, dbAllUsers[i].password);
+            expect(isCorrectPass).to.equal(true);
+            expect(expectedUsers[i].email).to.equal(dbAllUsers[i].email);
+            expect(expectedUsers[i].balance).to.equal(dbAllUsers[i].balance);
+        }
+
+        //expect(expectedUsers).to.deep.equal(dbAllUsers);
         await clearCollection(clearUrl);
     });
 });

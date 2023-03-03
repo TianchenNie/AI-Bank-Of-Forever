@@ -1,18 +1,20 @@
 import * as chai from "chai";
 import { createUsersWithRandBalances, clearCollection, createUsersWithRandHistories } from "./test_utils.js";
 
-const numUsers = 50;
+
+const numUsers = 100;
 describe("** Account Info Test Suite **", function () {
+    // console.log("TEST SERVER: ", process.env.TEST_SERVER);
+    const baseUrl = process.env.TEST_SERVER == '1' ? "http://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
     const expect = chai.expect;
-    const clearUrl = "http://localhost:8080/api/testing/clear-users";
-    console.log(`Account info test`);
-    it(`1. Test account balance retrieval of ${numUsers} users.`, async function () {
-        this.timeout(5000000);
+    const clearUrl = baseUrl + "/testing/clear-users";
+    it(`1. Test account balance retrieval of ${numUsers} users on ${baseUrl}.`, async function () {
+        this.timeout(0);
         await clearCollection(clearUrl);
-        const postUrl = "http://localhost:8080/api/testing/new-with-balance";
+        const postUrl = baseUrl + "/testing/new-with-balance";
         const generatedUsers = await createUsersWithRandBalances(postUrl, numUsers);
         for (const user of generatedUsers) {
-            const getUrl = `http://localhost:8080/api/account-info/balance/${user.email}/${user.password}`;
+            const getUrl = baseUrl + `/account-info/balance/${user.email}/${user.password}`;
             await fetch(getUrl, {
                 method: 'GET', // *GET, POST, PUT, DELETE, etc.
                 mode: 'cors', // no-cors, *cors, same-origin
@@ -35,15 +37,15 @@ describe("** Account Info Test Suite **", function () {
         }
         await clearCollection(clearUrl);
     });
-    it(`2. Test request history retrieval of ${numUsers} users.`, async function () {
+    it(`2. Test request history retrieval of ${numUsers} users on ${baseUrl}.`, async function () {
         const maxHistoryLength = 200;
-        this.timeout(500000);
+        this.timeout(0);
         await clearCollection(clearUrl);
-        const postUrl = "http://localhost:8080/api/testing/new-with-history";
+        const postUrl = baseUrl + "/testing/new-with-history";
         const generatedUsers = await createUsersWithRandHistories(postUrl, numUsers, maxHistoryLength);
 
         for (const user of generatedUsers) {
-            const getUrl = `http://localhost:8080/api/account-info/request-history/${user.email}/${user.password}`;
+            const getUrl = baseUrl + `/account-info/request-history/${user.email}/${user.password}`;
             await fetch(getUrl, {
                 method: 'GET', // *GET, POST, PUT, DELETE, etc.
                 mode: 'cors', // no-cors, *cors, same-origin

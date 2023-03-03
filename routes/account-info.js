@@ -6,7 +6,7 @@
 import { parseUserRequestHistory, SECRET, RESPONSE, generateError } from "../utils.js";
 import express from "express";
 import { User } from "../mongodb.js";
-import md5 from "blueimp-md5";
+import bcrypt from "bcrypt";
 
 const router = express.Router();
 // Get from accounts/balance. Returns user account balance
@@ -16,7 +16,7 @@ router.get(
         const email = req.params.email;
         const password = req.params.password;
         let error = false;
-        const user = await User
+        const dataBaseUser = await User
             .findOne({ email: email })
             .select({ password: 1, balance: 1 })
             .catch(err => {
@@ -25,16 +25,16 @@ router.get(
             });
         if (error) return next();
         // const password = req.params.password;
-        if (user == null) {
-            res.status(RESPONSE.NOT_FOUND).send(generateError(`Un-identified user email.`));
+        if (dataBaseUser == null) {
+            res.status(RESPONSE.NOT_FOUND).send(generateError(`Could not find user with email ${email}.`));
             return next();
         }
-        if (user.password != md5(password, SECRET)) {
+        if (!bcrypt.compareSync(password, dataBaseUser.password)) {
             res.status(RESPONSE.INVALID_AUTH).send(generateError("Incorrect user password."));
             return next();
         }
         const response = {
-            balance: user.balance.toString()
+            balance: dataBaseUser.balance.toString()
         };
         res.status(RESPONSE.OK).send(JSON.stringify(response, null, 2));
         return next();
@@ -48,7 +48,7 @@ router.get(
         const email = req.params.email;
         const password = req.params.password;
         let error = false;
-        const user = await User
+        const dataBaseUser = await User
             .findOne({ email: email })
             .select({ password: 1, moneyRequestHistory: 1 })
             .catch(err => {
@@ -56,15 +56,15 @@ router.get(
                 res.status(RESPONSE.INTERNAL_SERVER_ERR).send(generateError(err));
             });
         if (error) return next();
-        if (user == null) {
-            res.status(RESPONSE.NOT_FOUND).send(generateError(`Un-identified user email.`));
+        if (dataBaseUser == null) {
+            res.status(RESPONSE.NOT_FOUND).send(generateError(`Could not find user with email ${email}.`));
             return next();
         }
-        if (user.password != md5(password, SECRET)) {
+        if (!bcrypt.compareSync(password, dataBaseUser.password)) {
             res.status(RESPONSE.INVALID_AUTH).send(generateError("Incorrect user password."));
             return next();
         }
-        const parsedHistory = parseUserRequestHistory(user);
+        const parsedHistory = parseUserRequestHistory(dataBaseUser);
         res.status(RESPONSE.OK).send(JSON.stringify(parsedHistory, null, 2));
         return next();
     }

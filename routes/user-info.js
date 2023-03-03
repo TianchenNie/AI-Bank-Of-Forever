@@ -2,16 +2,15 @@
  * used for user info like password, 
  * address, cellphone, email, create new user etc.
  ***************************************************/
-import { RESPONSE, isValidEmailFormat, isValidMoneyAmount, SECRET } from "../utils.js";
+import { RESPONSE, isValidEmailFormat, isValidMoneyAmount, SECRET, generateError } from "../utils.js";
 import { User, dbClient } from "../mongodb.js";
 import express from "express";
-import md5 from "blueimp-md5";
-
+import bcrypt from "bcrypt";
 // used for user info like password, address, cellphone, email, create new user etc.
 
 // handle all routes under /api/user-info
 const router = express.Router();
-
+const saltRounds = 12;
 
 // POST to user-info. Create a new user.
 // used for testing purposes.
@@ -24,12 +23,12 @@ router.post(
 
         // check if parameters are valid
         if (!email || !isValidEmailFormat(email)) {
-            res.status(RESPONSE.BAD_REQUEST).send("Please enter a valid email.");
+            res.status(RESPONSE.BAD_REQUEST).send(generateError("Please enter a valid email."));
             return next();
         }
         // TODO: ask professor what password format he wants
         else if (!password) {
-            res.status(RESPONSE.BAD_REQUEST).send("Please enter a valid password.");
+            res.status(RESPONSE.BAD_REQUEST).send(generateError("Please enter a valid password."));
             return next();
         }
 
@@ -43,13 +42,13 @@ router.post(
             if (userExists) {
                 await session.abortTransaction();
                 await session.endSession();
-                res.status(RESPONSE.CONFLICT).send(`User account with email ${email} already exists.`);
+                res.status(RESPONSE.CONFLICT).send(generateError(`User account with email ${email} already exists.`));
                 return next();
             }
 
             const newUser = {
                 email: email,
-                password: md5(password, SECRET),
+                password: bcrypt.hashSync(password, saltRounds),
                 balance: "0.00",
                 moneyRequestHistory: []
             };

@@ -1,6 +1,7 @@
 /***************************************************
  * API 1 and 3
  * used to handle internal and external transactions.
+ * sandbox password: "8e9aU?p
  ***************************************************/
 import fetch from "node-fetch";
 import {
@@ -11,7 +12,7 @@ import * as uuid from "uuid";
 import paypal from "@paypal/checkout-server-sdk";
 import { User, dbClient } from "../mongodb.js";
 import express from "express";
-import md5 from "blueimp-md5";
+import bcrypt from "bcrypt";
 
 // TODO: update after go live, this link is for sandbox environment.
 const base = "https://api.sandbox.paypal.com";
@@ -92,7 +93,7 @@ router.post(
             return next();
         }
 
-        const user = await User
+        const dataBaseRequestor = await User
             .findOne({ email: requestorEmail })
             .select({ password: 1 })
             .catch(msg => {
@@ -101,12 +102,12 @@ router.post(
             });
 
         if (error) return next();
-        if (user == null) {
+        if (dataBaseRequestor == null) {
             req.status(RESPONSE.NOT_FOUND).send("User not found.");
             return next();
         }
 
-        if (md5(requestorPassword, SECRET) != user.password) {
+        if (!bcrypt.compareSync(requestorPassword, dataBaseRequestor.password)) {
             req.status(RESPONSE.INVALID_AUTH).send("Invalid password");
             return next();
         }
@@ -191,7 +192,9 @@ router.post(
             });
 
         if (error) return next();
-        res.status(RESPONSE.OK).send(approveLinkObj.href);
+        res.status(RESPONSE.OK).send({
+            completionUrl: approveLinkObj.href
+        });
         return next();
     }
 );
@@ -231,6 +234,7 @@ router.get(
         }
         const captureRes = await (capturePayment(order.captureUrl, accessToken));
         console.log("Capture Payment Response: ", JSON.stringify(captureRes, null, 2));
+        
 	if (captureRes == null) {
             req.status(RESPONSE.INTERNAL_SERVER_ERR).send();
             return next();
@@ -238,11 +242,12 @@ router.get(
 
         // TODO: may need to synchronize for multiple, parallel captures.
         order.status = requestStatus.CAPTURED;
+        // order.amount = order.amount.toString();
         order.timeCaptured = Date.now();
         await User
-            .updateOne({ email: email }, {
+            .findOneAndUpdate({ email: email }, {
                 moneyRequestHistory: user.moneyRequestHistory,
-                balance: roundToTwoDecimals(user.balance + order.amount)
+                $inc: { balance: order.amount }
             })
             .catch(err => {
                 error = true;
@@ -268,7 +273,7 @@ router.post(
         const password = req.body.password;
         let error = false;
         if (!isValidEmailFormat(userEmail)) {
-            res.status(RESPONSE.BAD_REQUEST).send(generateError("Invalid user email."));
+            res.status(RESPONSE.BAD_REQUEST).send(generateError("Invalid user email format."));
             return next();
         }
         if (!isValidMoneyAmount(spendAmount)) {
@@ -276,9 +281,24 @@ router.post(
             return next();
         }
 
-        
-        const user = await User
-            .findOneAndUpdate({ email: userEmail, password: md5(password, SECRET), balance: { $gte: spendAmount } },
+        /* try to find a user with the entered email */
+        const user = await User.findOne({ email: userEmail });
+
+        /* check if the user exists and the password is correct */
+        if (user == null) {
+            res.status(RESPONSE.NOT_FOUND).send(generateError(`Could not find user with email ${userEmail}.`));
+            return next();
+        }
+
+        const hashedPassword = user.password;
+        if (!bcrypt.compareSync(password, hashedPassword)) {
+            res.status(RESPONSE.INVALID_AUTH).send(generateError("Incorrect user password."));
+            return next();
+        }
+
+        /* update the user balance with negative spend amount. */
+        const updatedUser = await User
+            .findOneAndUpdate({ email: userEmail, password: hashedPassword, balance: { $gte: spendAmount } },
                 { $inc: { balance: "-" + spendAmount } },
                 { new: true }
             )
@@ -289,14 +309,18 @@ router.post(
             });
 
         if (error) return next();
-        if (user == null) {
-            res.status(RESPONSE.INVALID_AUTH).send(generateError("Invalid credentials or insufficient funds."));
+
+        /*  if updatedUser is null, then likely the user had insufficient funds.
+            However, with very small probability, the user could have changed their password between
+            findOne and findOneAndUpdate */
+        if (updatedUser == null) {
+            res.status(RESPONSE.BAD_REQUEST).send(generateError("Invalid credentials or insufficient funds."));
             return next();
         }
 
         /* send the new user balance as response. */
         res.status(RESPONSE.OK).send({
-            balance: user.balance.toString()
+            balance: updatedUser.balance.toString()
         });
         return next();
     }
@@ -311,22 +335,22 @@ router.post(
 
         const sender = req.body.sender;
         const receiver = req.body.receiver;
-        const senderpass = req.body.senderPassword;
+        const senderPassword = req.body.senderPassword;
         const moneyAmount = req.body.amount;
         // console.log("BODY: ", req.body);
         if (!isValidEmailFormat(sender)) {
-            res.status(RESPONSE.BAD_REQUEST).send(generateError("Invalid sender email."));
+            res.status(RESPONSE.BAD_REQUEST).send(generateError("Invalid sender email format."));
             return next();
         }
         if (!isValidEmailFormat(receiver)) {
-            res.status(RESPONSE.BAD_REQUEST).send(generateError("Invalid receiver email."));
+            res.status(RESPONSE.BAD_REQUEST).send(generateError("Invalid receiver email format."));
             return next();
         }
         if (!isValidMoneyAmount(moneyAmount)) {
             res.status(RESPONSE.BAD_REQUEST).send(generateError("Amount to transfer is invalid."));
             return next();
         }
-        if (typeof senderpass != "string") {
+        if (typeof senderPassword != "string") {
             res.status(RESPONSE.BAD_REQUEST).send(generateError("Invalid sender password format."));
             return next();
         }
@@ -344,15 +368,30 @@ router.post(
         if (error) return next();
 
         if (receiveUser == null) {
-            res.status(RESPONSE.NOT_FOUND).send(generateError(`Could not find receiving user: ${receiver}.`));
+            res.status(RESPONSE.NOT_FOUND).send(generateError(`Could not find receiver with email ${receiver}.`));
             return next();
         }
 
         const session = await dbClient.startSession();
         await session.startTransaction();
         try {
+            const sendUser = await User.findOne( { email: sender }, null, { session: session });
+            if (sendUser == null) {
+                await session.abortTransaction();
+                await session.endSession();
+                res.status(RESPONSE.NOT_FOUND).send(generateError(`Could not find sender with email ${sender}.`));
+                return next();
+            }
+
+            const hashedPassword = sendUser.password;
+            if (!bcrypt.compareSync(senderPassword, hashedPassword)) {
+                await session.abortTransaction();
+                await session.endSession();
+                res.status(RESPONSE.INVALID_AUTH).send(generateError("Incorrect sender password."));
+                return next();
+            }
             const sendUserUpdated = await User
-                .findOneAndUpdate({ email: sender, password: md5(senderpass, SECRET), balance: { $gte: moneyAmount } },
+                .findOneAndUpdate({ email: sender, password: hashedPassword, balance: { $gte: moneyAmount } },
                     { $inc: { balance: "-" + moneyAmount } },
                     { session: session, new: true }
                 );
@@ -360,7 +399,7 @@ router.post(
             if (sendUserUpdated == null) {
                 await session.abortTransaction();
                 await session.endSession();
-                res.status(RESPONSE.NOT_FOUND).send(generateError("Invalid sender credentials or insufficient funds."));
+                res.status(RESPONSE.NOT_FOUND).send(generateError("Insufficient funds in sender account."));
                 return next();
             }
 

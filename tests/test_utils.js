@@ -16,6 +16,7 @@ export async function createUsersWithDuplicates(postUrl, numUsers) {
     const chance = new Chance();
     const generatedUsers = [];
     for (let i = 0; i < numUsers; i++) {
+        // console.log(`Creating user number ${i}`);
         const val = Math.random() * 100;
         let data;
         if (val <= 40 && i > 0) {
@@ -143,16 +144,50 @@ export async function createUsersWithRandHistories(postUrl, numUsers, maxHistory
 
 /* Delete all users in database collection */
 export async function clearCollection(url) {
-    await fetch(url, {
-        method: 'GET', // *GET, POST, PUT, DELETE, etc.
-        mode: 'cors', // no-cors, *cors, same-origin
-        cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
-        credentials: 'same-origin', // include, *same-origin, omit
+    console.log("Awaiting clear collection fetch...");
+    let i = 0;
+    let failed = false;
+    do {
+        try {
+            await fetch(url, {
+                method: 'GET', // *GET, POST, PUT, DELETE, etc.
+                mode: 'cors', // no-cors, *cors, same-origin
+                cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
+                credentials: 'same-origin', // include, *same-origin, omit
+                headers: {
+                    'Content-Type': 'application/json'
+                    // 'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                redirect: 'follow', // manual, *follow, error
+                referrerPolicy: 'no-referrer', // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
+            });
+            failed = false;
+            console.log("Finished clearing all users!");
+        }
+        catch (error) {
+            failed = true;
+            i++;
+            console.log("GOT ERROR WHILE DELETING ALL USERS: ", error);
+        }
+    } while (i < 5 && failed)
+    return;
+}
+
+export async function getAllUsers(getUrl) {
+    let retrieved = [];
+    await fetch(getUrl, {
+        method: 'GET',
+        mode: 'cors', 
+        cache: 'no-cache',
+        credentials: 'same-origin',
         headers: {
             'Content-Type': 'application/json'
-            // 'Content-Type': 'application/x-www-form-urlencoded',
         },
-        redirect: 'follow', // manual, *follow, error
-        referrerPolicy: 'no-referrer', // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
-    });
+        redirect: 'follow',
+        referrerPolicy: 'no-referrer', 
+    })
+    .then(responseString => responseString.json())
+    .then(response => retrieved = response)
+    .catch(err => console.error(err));
+    return retrieved;
 }

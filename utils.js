@@ -1,4 +1,5 @@
 import dontenv from "dotenv";
+import bcrypt from "bcrypt";
 
 dontenv.config();
 
@@ -34,7 +35,7 @@ export function isValidMoneyAmount(num) {
 /* Request amount can only be a postive whole number, or a postive 2 decimal number, and must be less than 9999999.99 */
 export function isValidRequestAmount(num) {
     const atMostTwoDecimals = /^\d+(\.\d{1,2})?$/;
-    return typeof num == "number" && num >= 0 && num <= 9999999.99 && atMostTwoDecimals.test(String(num));
+    return typeof num == "string" && parseFloat(num) >= 0 && parseFloat(num) <= 9999999.99 && atMostTwoDecimals.test(num);
 }
 
 // Round num to two decimals, deals with invalid float addition error e.g. 0.1 + 0.2

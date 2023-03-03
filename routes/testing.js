@@ -1,10 +1,11 @@
-import { RESPONSE, isValidEmailFormat, isValidMoneyAmount, parseUserRequestHistory, SECRET } from "../utils.js";
+import { RESPONSE, isValidEmailFormat, isValidMoneyAmount, parseUserRequestHistory, SECRET, generateError } from "../utils.js";
 import { User, dbClient } from "../mongodb.js";
 import express from "express";
-import md5 from "blueimp-md5";
+import bcrypt from "bcrypt";
+
 
 const router = express.Router();
-
+const saltRounds = 12;
 // used for testing purposes.
 router.post(
     '/new-with-balance',
@@ -31,7 +32,7 @@ router.post(
         await session.startTransaction();
         const newUser = {
             email: email,
-            password: md5(password, SECRET),
+            password: bcrypt.hashSync(password, saltRounds),
             balance: balance,
             moneyRequestHistory: []
         };
@@ -89,7 +90,7 @@ router.post(
         await session.startTransaction();
         const newUser = {
             email: email,
-            password: md5(password, SECRET),
+            password: bcrypt.hashSync(password, saltRounds),
             balance: "0.00",
             moneyRequestHistory: history
         };
@@ -133,7 +134,7 @@ router.get(
         const users = await User
             .find({})
             .catch(err => {
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
+                res.status(RESPONSE.INTERNAL_SERVER_ERR).send(generateError(err));
             });
         
         if (error) return next();
@@ -146,7 +147,7 @@ router.get(
                 moneyRequestHistory: parseUserRequestHistory(user)
             });
         }
-        res.status(RESPONSE.OK).send(retUsers);
+        res.status(RESPONSE.OK).send(JSON.stringify(retUsers));
         return next();
     }
 );

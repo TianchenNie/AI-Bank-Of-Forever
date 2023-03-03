@@ -20,7 +20,7 @@ await initializeMongoDB(DB_USERNAME, DB_PASSWORD);
 const app = express();
 
 // http packet body should be in json format
-app.use(express.json({ limit: '5mb' }));
+app.use(express.json({ limit: '50mb' }));
 
 // security checks
 app.use(helmet());
