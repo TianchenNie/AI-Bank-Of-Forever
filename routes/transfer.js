@@ -110,7 +110,7 @@ async function captureOrder(orderId) {
         const response = await paypalClient.execute(request);
         // If call returns body in response, you can get the deserialized version from the result attribute of the response.
         console.log(`Capture: ${JSON.stringify(response.result)}`);
-        return response["result"]["net_amount"]["value"];
+        return response["purchase_units"][0]["payments"]["captures"][0]["seller_receivable_breakdown"]["net_amount"]["value"];
     }
     catch (error){
         console.error(error);
