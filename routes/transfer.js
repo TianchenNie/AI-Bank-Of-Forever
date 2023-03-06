@@ -14,7 +14,6 @@ import paypal from "@paypal/checkout-server-sdk";
 import { User, dbClient } from "../mongodb.js";
 import express from "express";
 import bcrypt from "bcrypt";
-import { order } from "paypal-rest-sdk";
 
 const router = express.Router();
 
