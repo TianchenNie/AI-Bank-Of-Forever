@@ -6,7 +6,7 @@
 import fetch from "node-fetch";
 import {
     PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, RESPONSE, SERVER_BASE_URL,
-    isValidMoneyAmount, isValidRequestAmount, roundToTwoDecimals, generateError, SECRET, isValidEmailFormat
+    isValidMoneyAmount, isValidRequestAmount, generateError, isValidEmailFormat
 } from "../utils.js";
 import * as uuid from "uuid";
 import paypal from "@paypal/checkout-server-sdk";
@@ -74,7 +74,13 @@ const router = express.Router();
 // TODO: update SandboxEnvironment after we go live.
 const paypalClient = new paypal.core.PayPalHttpClient(new paypal.core.SandboxEnvironment(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET));
 
-
+router.post("/external/paypal/webhooks/payment",
+    (req, res, next) => {
+        console.log("Received web hook!!!");
+        console.log(req.body);
+        return next();
+    }
+);
 // Flow: receive request from frontend, create request and return redirect link to user
 // user navigates to link and approves, frontend calls capture of backend,
 // capture then updates user balnces.
