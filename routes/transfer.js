@@ -14,6 +14,7 @@ import paypal from "@paypal/checkout-server-sdk";
 import { User, dbClient } from "../mongodb.js";
 import express from "express";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 
 const router = express.Router();
 
@@ -79,27 +80,23 @@ async function getOrderDetails(orderId) {
     return response.result;
 }
 
-async function verifyPayPalWebhook(req) {
-    const authAlgo = req.headers["PAYPAL-AUTH-ALGO"];
-    const certUrl = req.headers["PAYPAL-CERT-URL"];
-    const transmissionId = req.headers["PAYPAL-TRANSMISSION-ID"];
-    const transmissionSig = req.headers["PAYPAL-TRANSMISSION-SIG"];
-    const transmissionTime = req.headers["PAYPAL-TRANSMISSION-TIME"];
-    const webhookId = req.headers["PAYPAL-WEBHOOK-ID"];
-    const webhookEvent = JSON.stringify(req.body);
+function verifyWebhookSignature(headers, payload) {
+    console.log("HEADERS: ", headers);
+    const algo = headers['paypal-auth-algo'.toUpperCase()];
+    const transmissionId = headers['paypal-transmission-id'.toUpperCase()];
+    const transmissionTime = headers['paypal-transmission-time'.toUpperCase()];
+    const certUrl = headers['paypal-cert-url'.toUpperCase()];
+    const actualSignature = headers['paypal-transmission-sig'.toUpperCase()];
 
-    try {
-        const response = await fetch();
-        if (response.statusCode === 204) {
-        console.log('Webhook verified');
-        return true;
-        }
-    } catch (err) {
-        console.error('Error verifying webhook:', err);
-    }
+    const payloadStr = JSON.stringify(payload);
 
-    console.log('Webhook verification failed');
-    return false;
+    const hash = crypto.createHmac('sha256', PAYPAL_CLIENT_SECRET)
+                        .update(`${algo}|${transmissionId}|${transmissionTime}|${certUrl}|${payloadStr}`)
+                        .digest('hex');
+
+    const expectedSignature = `transmissionId=${transmissionId},signature=${hash}`;
+
+    return actualSignature === expectedSignature;
 }
 
 async function captureOrder(orderId) {
@@ -124,14 +121,11 @@ console.log("Got Access Token:", accessToken);
 router.post("/external/paypal/webhooks/order-complete",
     async (req, res, next) => {
         const hookBody = req.body;
-        
+        const isVerified = verifyWebhookSignature(req.headers, hookBody);
+        console.log("IS VERIFIED: ", isVerified);
         if (hookBody.event_type === "CHECKOUT.ORDER.APPROVED") {
             const orderId = hookBody.resource.id;
-            const orderDetails = await getOrderDetails(orderId);
-            console.log("ORDER DETAILS IN WEBHOOKS: ");
-            console.log(orderDetails);
-            console.log("ID equals: ", orderDetails["id"] == orderId);
-            const amount = await captureOrder(orderDetails["id"]);
+            const amount = await captureOrder(orderId);
             if (amount == -1) {
                 res.status(RESPONSE.BAD_REQUEST).send();
                 return next();
