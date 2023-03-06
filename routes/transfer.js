@@ -14,6 +14,11 @@ import { User, dbClient } from "../mongodb.js";
 import express from "express";
 import bcrypt from "bcrypt";
 
+const router = express.Router();
+
+// TODO: update SandboxEnvironment after we go live.
+const paypalClient = new paypal.core.PayPalHttpClient(new paypal.core.SandboxEnvironment(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET));
+
 // TODO: update after go live, this link is for sandbox environment.
 const base = "https://api.sandbox.paypal.com";
 
@@ -67,17 +72,53 @@ async function capturePayment(captureUrl) {
     return data;
 }
 
+async function getOrderDetails(orderId) {
+    const request = paypal.orders.OrdersGetRequest(orderId);
+    const response = await paypalClient.execute(request);
+    return response.result;
+}
+
+async function verifyPayPalWebhook(req) {
+    const authAlgo = req.headers["PAYPAL-AUTH-ALGO"];
+    const certUrl = req.headers["PAYPAL-CERT-URL"];
+    const transmissionId = req.headers["PAYPAL-TRANSMISSION-ID"];
+    const transmissionSig = req.headers["PAYPAL-TRANSMISSION-SIG"];
+    const transmissionTime = req.headers["PAYPAL-TRANSMISSION-TIME"];
+    const webhookId = req.headers["PAYPAL-WEBHOOK-ID"];
+    const webhookEvent = JSON.stringify(req.body);
+
+    try {
+        const response = await fetch();
+        if (response.statusCode === 204) {
+        console.log('Webhook verified');
+        return true;
+        }
+    } catch (err) {
+        console.error('Error verifying webhook:', err);
+    }
+
+    console.log('Webhook verification failed');
+    return false;
+}
+
 let accessToken = await getAccessToken();
 console.log("Got Access Token:", accessToken);
-const router = express.Router();
 
-// TODO: update SandboxEnvironment after we go live.
-const paypalClient = new paypal.core.PayPalHttpClient(new paypal.core.SandboxEnvironment(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET));
+router.post("/external/paypal/webhooks/order-complete",
+    async (req, res, next) => {
+        const hookBody = req.body;
+        
+        if (hookBody.event_type === "CHECKOUT.ORDER.APPROVED") {
+            const orderId = hookBody.resource.id;
+            const orderDetails = await getOrderDetails(orderId);
+            
+            console.log("ORDER DETAILS IN WEBHOOKS: ");
+            console.log(orderDetails);
+        }
+        
 
-router.post("/external/paypal/webhooks/payment",
-    (req, res, next) => {
-        console.log("Received web hook!!!");
-        console.log(req.body);
+        // console.log("Received web hook!!!");
+        // console.log(req.body);
         res.status(RESPONSE.OK).send();
         return next();
     }
