@@ -81,7 +81,8 @@ async function getOrderDetails(orderId) {
 }
 
 function verifyWebhookSignature(headers, payload) {
-    console.log("HEADERS: ", headers);
+    const webHookId = "9US32710Y7947011C";
+    // console.log("HEADERS: ", headers);
     const algo = headers['paypal-auth-algo'];
     const transmissionId = headers['paypal-transmission-id'];
     const transmissionTime = headers['paypal-transmission-time'];
@@ -89,12 +90,16 @@ function verifyWebhookSignature(headers, payload) {
     const actualSignature = headers['paypal-transmission-sig'];
 
     const payloadStr = JSON.stringify(payload);
+    console.log(payload);
+    console.log(payloadStr);
 
     const hash = crypto.createHmac('sha256', PAYPAL_CLIENT_SECRET)
-                        .update(`${algo}|${transmissionId}|${transmissionTime}|${certUrl}|${payloadStr}`)
+                        .update(`${transmissionId}|${transmissionTime}|${webHookId}|${payloadStr}`)
                         .digest('hex');
 
     const expectedSignature = `transmissionId=${transmissionId},signature=${hash}`;
+    console.log("EXPECTED: ", expectedSignature);
+    console.log("ACTUAL: ", actualSignature);
 
     return actualSignature === expectedSignature;
 }
@@ -211,6 +216,7 @@ router.post(
                 }
             ],
             application_context: {
+                brand_name: "AI Bank Of Forever",
                 shipping_preference: "NO_SHIPPING",
                 user_action: "PAY_NOW",
                 return_url: `${SERVER_BASE_URL}/api/transfer/external/capture-request/${requestorEmail}/${uniqueId}`
