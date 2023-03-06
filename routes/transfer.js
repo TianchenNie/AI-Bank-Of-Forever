@@ -230,7 +230,7 @@ router.post(
                 error = true;
                 res.status(RESPONSE.INTERNAL_SERVER_ERR).send(err);
             });
-        console.log("ORDER: ", order);
+        // console.log("ORDER: ", order);
         if (error) return next();
         const orderId = order.result.id;
         const captureLinkObj = Array.isArray(order.result.links) && order.result.links.find((obj) => obj.rel == "capture");
