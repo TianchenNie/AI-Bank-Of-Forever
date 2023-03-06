@@ -80,8 +80,11 @@ async function verifyWebhookSignature(headers, payload) {
         webhook_event: payloadStr
     }
 
+    console.log("REQ BODY: ");
+    console.log(reqBody);
+
     const response = await fetch(url, {
-        method: "post",
+        method: "POST",
         headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${accessToken}`
