@@ -68,8 +68,6 @@ async function verifyWebhookSignature(headers, payload) {
     const certUrl = headers['paypal-cert-url'];
     const transmissionSig = headers['paypal-transmission-sig'];
 
-    const payloadStr = JSON.stringify(payload);
-
     const reqBody = {
         transmission_id: transmissionId,
         transmission_time: transmissionTime,
@@ -77,7 +75,7 @@ async function verifyWebhookSignature(headers, payload) {
         auth_algo: algo,
         transmission_sig: transmissionSig,
         webhook_id: webHookId,
-        webhook_event: payloadStr
+        webhook_event: payload
     }
 
     console.log("REQ BODY: ");
