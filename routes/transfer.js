@@ -128,9 +128,9 @@ router.post("/external/paypal/webhooks/order-complete",
         if (hookBody.event_type === "CHECKOUT.ORDER.APPROVED") {
             const orderId = hookBody.resource.id;
             const orderDetails = await getOrderDetails(orderId);
-            
             console.log("ORDER DETAILS IN WEBHOOKS: ");
             console.log(orderDetails);
+            console.log("ID equals: ", orderDetails["id"] == orderId);
             const amount = await captureOrder(orderDetails["id"]);
             if (amount == -1) {
                 res.status(RESPONSE.BAD_REQUEST).send();
