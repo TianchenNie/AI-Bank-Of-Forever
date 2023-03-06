@@ -73,16 +73,6 @@ async function capturePayment(captureUrl) {
     return data;
 }
 
-async function captureOrder(orderId) {
-    const request = new paypal.orders.OrdersCaptureRequest(orderId);
-    request.requestBody({});
-    // Call API with your client and get a response for your call
-    const response = await paypalClient.execute(request);
-    // If call returns body in response, you can get the deserialized version from the result attribute of the response.
-    console.log(`Capture: ${JSON.stringify(response.result)}`);
-}
-
-
 async function getOrderDetails(orderId) {
     const request = new paypal.orders.OrdersGetRequest(orderId);
     const response = await paypalClient.execute(request);
@@ -112,6 +102,22 @@ async function verifyPayPalWebhook(req) {
     return false;
 }
 
+async function captureOrder(orderId) {
+    const request = new paypal.orders.OrdersCaptureRequest(orderId);
+    request.requestBody({});
+    try {
+        // Call API with your client and get a response for your call
+        const response = await paypalClient.execute(request);
+        // If call returns body in response, you can get the deserialized version from the result attribute of the response.
+        console.log(`Capture: ${JSON.stringify(response.result)}`);
+        return response["result"]["net_amount"]["value"];
+    }
+    catch (error){
+        console.error(error);
+        return -1;
+    }
+}
+
 let accessToken = await getAccessToken();
 console.log("Got Access Token:", accessToken);
 
@@ -125,7 +131,12 @@ router.post("/external/paypal/webhooks/order-complete",
             
             console.log("ORDER DETAILS IN WEBHOOKS: ");
             console.log(orderDetails);
-            await captureOrder(orderDetails["id"]);
+            const amount = await captureOrder(orderDetails["id"]);
+            if (amount == -1) {
+                res.status(RESPONSE.BAD_REQUEST).send();
+                return next();
+            }
+            console.log("Order amount: ", amount);
         }
         
 
