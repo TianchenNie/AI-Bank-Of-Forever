@@ -82,11 +82,11 @@ async function getOrderDetails(orderId) {
 
 function verifyWebhookSignature(headers, payload) {
     console.log("HEADERS: ", headers);
-    const algo = headers['paypal-auth-algo'.toUpperCase()];
-    const transmissionId = headers['paypal-transmission-id'.toUpperCase()];
-    const transmissionTime = headers['paypal-transmission-time'.toUpperCase()];
-    const certUrl = headers['paypal-cert-url'.toUpperCase()];
-    const actualSignature = headers['paypal-transmission-sig'.toUpperCase()];
+    const algo = headers['paypal-auth-algo'];
+    const transmissionId = headers['paypal-transmission-id'];
+    const transmissionTime = headers['paypal-transmission-time'];
+    const certUrl = headers['paypal-cert-url'];
+    const actualSignature = headers['paypal-transmission-sig'];
 
     const payloadStr = JSON.stringify(payload);
 
