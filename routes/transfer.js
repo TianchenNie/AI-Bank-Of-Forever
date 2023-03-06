@@ -74,10 +74,10 @@ async function capturePayment(captureUrl) {
 }
 
 async function captureOrder(orderId) {
-    request = new paypal.orders.OrdersCaptureRequest(orderId);
+    const request = new paypal.orders.OrdersCaptureRequest(orderId);
     request.requestBody({});
     // Call API with your client and get a response for your call
-    let response = await paypalClient.execute(request);
+    const response = await paypalClient.execute(request);
     // If call returns body in response, you can get the deserialized version from the result attribute of the response.
     console.log(`Capture: ${JSON.stringify(response.result)}`);
 }
@@ -208,7 +208,7 @@ router.post(
             application_context: {
                 shipping_preference: "NO_SHIPPING",
                 user_action: "PAY_NOW",
-                // return_url: `${SERVER_BASE_URL}/api/transfer/external/capture-request/${requestorEmail}/${uniqueId}`
+                return_url: `${SERVER_BASE_URL}/api/transfer/external/capture-request/${requestorEmail}/${uniqueId}`
             },
 
         });
