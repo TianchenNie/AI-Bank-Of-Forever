@@ -78,6 +78,7 @@ router.post("/external/paypal/webhooks/payment",
     (req, res, next) => {
         console.log("Received web hook!!!");
         console.log(req.body);
+        res.status(RESPONSE.OK).send();
         return next();
     }
 );
@@ -154,11 +155,11 @@ router.post(
             application_context: {
                 shipping_preference: "NO_SHIPPING",
                 user_action: "PAY_NOW",
-                // return_url: `${SERVER_BASE_URL}/api/transfer/external/capture-request/${requestorEmail}/${uniqueId}`
+                return_url: `${SERVER_BASE_URL}/api/transfer/external/capture-request/${requestorEmail}/${uniqueId}`
             },
 
         });
-        console.log("Return url: " + `${SERVER_BASE_URL}/api/transfer/external/capture-request/${requestorEmail}/${uniqueId}`);
+        // console.log("Return url: " + `${SERVER_BASE_URL}/api/transfer/external/capture-request/${requestorEmail}/${uniqueId}`);
         const order = await paypalClient
             .execute(request)
             .catch(err => {
