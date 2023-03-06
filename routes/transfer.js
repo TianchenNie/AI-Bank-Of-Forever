@@ -1,6 +1,7 @@
 /***************************************************
  * API 1 and 3
  * used to handle internal and external transactions.
+ * sandbox account: sb-p6tox23893932@personal.example.com
  * sandbox password: "8e9aU?p
  ***************************************************/
 import fetch from "node-fetch";
@@ -73,7 +74,7 @@ async function capturePayment(captureUrl) {
 }
 
 async function getOrderDetails(orderId) {
-    const request = paypal.orders.OrdersGetRequest(orderId);
+    const request = new paypal.orders.OrdersGetRequest(orderId);
     const response = await paypalClient.execute(request);
     return response.result;
 }
