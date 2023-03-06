@@ -154,7 +154,7 @@ router.post(
             application_context: {
                 shipping_preference: "NO_SHIPPING",
                 user_action: "PAY_NOW",
-                return_url: `${SERVER_BASE_URL}/api/transfer/external/capture-request/${requestorEmail}/${uniqueId}`
+                // return_url: `${SERVER_BASE_URL}/api/transfer/external/capture-request/${requestorEmail}/${uniqueId}`
             },
 
         });
