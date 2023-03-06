@@ -55,6 +55,46 @@ async function getAccessToken() {
     return accessToken;
 };
 
+let accessToken = await getAccessToken();
+console.log("Got Access Token:", accessToken);
+
+async function verifyWebhookSignature(headers, payload) {
+    const url = "https://api-m.sandbox.paypal.com/v1/notifications/verify-webhook-signature";
+    const webHookId = "9US32710Y7947011C";
+    // console.log("HEADERS: ", headers);
+    const algo = headers['paypal-auth-algo'];
+    const transmissionId = headers['paypal-transmission-id'];
+    const transmissionTime = headers['paypal-transmission-time'];
+    const certUrl = headers['paypal-cert-url'];
+    const transmissionSig = headers['paypal-transmission-sig'];
+
+    const payloadStr = JSON.stringify(payload);
+
+    const reqBody = {
+        transmission_id: transmissionId,
+        transmission_time: transmissionTime,
+        cert_url: certUrl,
+        auth_algo: algo,
+        transmission_sig: transmissionSig,
+        webhook_id: webHookId,
+        webhook_event: payloadStr
+    }
+
+    const response = await fetch(url, {
+        method: "post",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`
+        },
+        body: reqBody
+    })
+    .catch(err => {
+        console.error(err);
+    });
+    return response;
+
+}
+
 async function capturePayment(captureUrl) {
     let error = false;
     // const url = `${base}/v2/checkout/orders/${orderId}/capture`;
@@ -80,38 +120,12 @@ async function getOrderDetails(orderId) {
     return response.result;
 }
 
-function verifyWebhookSignature(headers, payload) {
-    const webHookId = "9US32710Y7947011C";
-    // console.log("HEADERS: ", headers);
-    const algo = headers['paypal-auth-algo'];
-    const transmissionId = headers['paypal-transmission-id'];
-    const transmissionTime = headers['paypal-transmission-time'];
-    const certUrl = headers['paypal-cert-url'];
-    const actualSignature = headers['paypal-transmission-sig'];
-
-    const payloadStr = JSON.stringify(payload);
-    console.log(payload);
-    console.log(payloadStr);
-
-    const hash = crypto.createHmac('sha256', PAYPAL_CLIENT_SECRET)
-                        .update(`${transmissionId}|${transmissionTime}|${webHookId}|${payloadStr}`)
-                        .digest('hex');
-
-    const expectedSignature = `transmissionId=${transmissionId},signature=${hash}`;
-    console.log("EXPECTED: ", expectedSignature);
-    console.log("ACTUAL: ", actualSignature);
-
-    return actualSignature === expectedSignature;
-}
-
 async function captureOrder(orderId) {
     const request = new paypal.orders.OrdersCaptureRequest(orderId);
     request.requestBody({});
     try {
         // Call API with your client and get a response for your call
         const response = await paypalClient.execute(request);
-        // If call returns body in response, you can get the deserialized version from the result attribute of the response.
-        console.log(`Capture: ${JSON.stringify(response.result)}`);
         return response.result["purchase_units"][0]["payments"]["captures"][0]["seller_receivable_breakdown"]["net_amount"]["value"];
     }
     catch (error){
@@ -120,13 +134,10 @@ async function captureOrder(orderId) {
     }
 }
 
-let accessToken = await getAccessToken();
-console.log("Got Access Token:", accessToken);
-
 router.post("/external/paypal/webhooks/order-complete",
     async (req, res, next) => {
         const hookBody = req.body;
-        const isVerified = verifyWebhookSignature(req.headers, hookBody);
+        const isVerified = await verifyWebhookSignature(req.headers, hookBody);
         console.log("IS VERIFIED: ", isVerified);
         if (hookBody.event_type === "CHECKOUT.ORDER.APPROVED") {
             const orderId = hookBody.resource.id;
