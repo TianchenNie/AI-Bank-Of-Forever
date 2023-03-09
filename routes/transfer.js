@@ -246,11 +246,7 @@ router.post(
                         }
                     },
                     {
-                        $inc: {
-                            balance: {
-                                amountRequestedAfterTax
-                            }
-                        }
+                        $inc: { balance: amountRequestedAfterTax }
                     },
                     { new: true },
                 );
