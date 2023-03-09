@@ -247,7 +247,7 @@ router.post(
                                             $elemMatch: { orderId: orderId, timeCaptured: { $eq: null } }
                                         }
                                     },
-                                    then: mongoose.Types.Decimal128.fromString(amountRequestedAfterTax),
+                                    then: amountRequestedAfterTax.toString(),
                                     else: "0",
                                 }
                             }
