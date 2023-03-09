@@ -233,25 +233,31 @@ router.post(
 
             /* update the user balance if we find an array element elem that has a matching orderId */
             /* set the time captured of that element to the current time */
-            await User
+            const updatedUser = await User
                 .findOneAndUpdate(
                     { email: userEmail },
-                    {
-                        $inc: {
-                            balance: {
-                                $cond: {
-                                    if: {
-                                        moneyRequestHistory: {
-                                            $elemMatch: { orderId: orderId, timeCaptured: null }
-                                        }
-                                    },
-                                    then: amountRequestedAfterTax,
-                                    else: 0
+                    [
+                        {
+                            $inc: {
+                                balance: {
+                                    $cond: {
+                                        if: {
+                                            $and: [
+                                                { $eq: [ "$$orderElem.orderId", orderId ] },
+                                                { $eq: [ "$$orderElem.timeCaptured", null ]}
+                                            ]
+                                            // moneyRequestHistory: {
+                                            //     $elemMatch: { orderId: orderId, timeCaptured: null }
+                                            // }
+                                        },
+                                        then: amountRequestedAfterTax,
+                                        else: "0",
+                                    }
                                 }
                             }
                         },
-                        $set: { "moneyRequestHistory.$[orderElem].timeCaptured": Date.now() },
-                    },
+                        { $set: { "moneyRequestHistory.$[orderElem].timeCaptured": Date.now() } },
+                    ],
                     {
                         arrayFilters: [
                             {
@@ -259,8 +265,11 @@ router.post(
                                 "orderElem.timeCaptured": null
                             }
                         ]
-                    }
+                    },
+                    { new: true }
                 );
+            console.log("Updated User: ", updatedUser);
+
             res.status(RESPONSE.OK).send();
         }
         
