@@ -15,6 +15,7 @@ import paypal from "@paypal/checkout-server-sdk";
 import { User, dbClient } from "../mongodb.js";
 import express from "express";
 import bcrypt from "bcrypt";
+import qs from "qs";
 import crypto from "crypto";
 
 const router = express.Router();
@@ -179,8 +180,7 @@ router.post(
 
         if (error) return next();
         res.status(RESPONSE.OK).send({
-            viewLink: viewLinkObj.href,
-            approveLink: approveLinkObj.href,
+            href: approveLinkObj.href,
         });
         return next();
     }
