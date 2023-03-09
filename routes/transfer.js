@@ -224,7 +224,7 @@ router.post(
                 return next();
             }
             const userEmail = payload.resource.purchase_units[0].custom_id;
-            console.log("GOT CUSTOM ID: ", custom_id);
+            console.log("GOT CUSTOM ID: ", userEmail);
             if (!isValidEmailFormat(userEmail)) {
                 console.error(`Invalid custom ID: ${userEmail}`);
                 res.status(RESPONSE.BAD_REQUEST).send();
