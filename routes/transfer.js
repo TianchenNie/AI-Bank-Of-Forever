@@ -225,6 +225,8 @@ router.post(
                 return next();
             }
             console.log("Amount Requested Afer Tax: ", amountRequestedAfterTax);
+            console.log("Order ID: ", orderId);
+            console.log("Type of order ID: ", typeof orderId);
             const userEmail = payload.resource.purchase_units[0].custom_id;
             console.log("GOT CUSTOM ID: ", userEmail);
             if (!isValidEmailFormat(userEmail)) {

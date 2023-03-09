@@ -8,6 +8,7 @@ const userSchemaLayout = {
     balance: {
         type: mongoose.Types.Decimal128,
         set: (value) => {
+            console.log("VALUE IN SET BALANCE: ", value)
             if (value instanceof mongoose.Types.Decimal128) {
                 value = value.toString();
             }
