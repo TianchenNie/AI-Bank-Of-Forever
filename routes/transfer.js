@@ -179,7 +179,8 @@ router.post(
 
         if (error) return next();
         res.status(RESPONSE.OK).send({
-            href: approveLinkObj.href
+            viewLink: viewLinkObj.href,
+            approveLink: approveLinkObj.href,
         });
         return next();
     }
