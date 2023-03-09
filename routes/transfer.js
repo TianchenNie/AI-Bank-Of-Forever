@@ -167,7 +167,7 @@ router.post(
             viewUrl: viewLinkObj.href,
             approveUrl: approveLinkObj.href,
             timeCreated: Date.now(),
-            timeCaptured: new Date(0),
+            timeCaptured: null,
         };
 
         await User
@@ -239,19 +239,16 @@ router.post(
             /* set the time captured of that element to the current time */
             const balanceUpdatedUser = await User
                 .findOneAndUpdate(
-                    { email: userEmail },
+                    { 
+                        email: userEmail,
+                        moneyRequestHistory: {
+                            $elemMatch: { orderId: orderId, timeCaptured: { $eq: null } }
+                        }
+                    },
                     {
                         $inc: {
                             balance: {
-                                $cond: {
-                                    if: {
-                                        moneyRequestHistory: {
-                                            $elemMatch: { orderId: orderId, timeCaptured: { $eq: (new Date(0)).toISOString() } }
-                                        }
-                                    },
-                                    then: amountRequestedAfterTax.toString(),
-                                    else: "0",
-                                }
+                                amountRequestedAfterTax
                             }
                         }
                     },
@@ -273,7 +270,7 @@ router.post(
                         arrayFilters: [
                             {
                                 "orderElem.orderId": orderId,
-                                "orderElem.timeCaptured": { $eq: (new Date(0)).toISOString() }
+                                "orderElem.timeCaptured": { $eq: null }
                             }
                         ],
                         new: true

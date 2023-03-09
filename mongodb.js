@@ -7,15 +7,14 @@ const userSchemaLayout = {
     password: String,
     balance: {
         type: mongoose.Types.Decimal128,
-        // set: (value) => {
-        //     console.log("VALUE IN SET BALANCE: ", value)
-        //     if (value instanceof mongoose.Types.Decimal128) {
-        //         value = value.toString();
-        //     }
-        //     assert(typeof value == 'string', `Value passed to balance must be a string, got ${value} of type ${typeof(value)}!`);
-        //     const bigValue = new BigNumber(value);
-        //     return mongoose.Types.Decimal128.fromString(bigValue.toFixed(2));
-        // }
+        set: (value) => {
+            if (value instanceof mongoose.Types.Decimal128) {
+                return value;
+            }
+            assert(typeof value == 'string', `Value passed to balance must be a string, got ${value} of type ${typeof(value)}!`);
+            const bigValue = new BigNumber(value);
+            return mongoose.Types.Decimal128.fromString(bigValue.toFixed(2));
+        }
     },
     moneyRequestHistory: [{
         serverId: String,
@@ -23,14 +22,14 @@ const userSchemaLayout = {
         status: String,
         amount: {
             type: mongoose.Types.Decimal128,
-            // set: (value) => {
-            //     if (value instanceof mongoose.Types.Decimal128) {
-            //         value = value.toString();
-            //     }
-            //     assert(typeof value == 'string', `Value passed to money request history must be a string, got ${value} of type ${typeof(value)}!`);
-            //     const bigValue = new BigNumber(value);
-            //     return mongoose.Types.Decimal128.fromString(bigValue.toFixed(2));
-            // }
+            set: (value) => {
+                if (value instanceof mongoose.Types.Decimal128) {
+                    return value;
+                }
+                assert(typeof value == 'string', `Value passed to money request history must be a string, got ${value} of type ${typeof(value)}!`);
+                const bigValue = new BigNumber(value);
+                return mongoose.Types.Decimal128.fromString(bigValue.toFixed(2));
+            }
         },
         captureUrl: String,
         viewUrl: String,
