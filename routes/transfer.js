@@ -225,9 +225,8 @@ router.post(
     async (req, res, next) => {
         const payload = req.body;
         const isVerified = await verifyWebhookSignature(req.headers, payload);
-        if (typeof isVerified == "boolean"){
-            console.log("IS VERIFIED: ", isVerified);
-        }
+        console.log("*********** IS VERIFIED ************: ", isVerified);
+        
         if (payload.event_type === "CHECKOUT.ORDER.APPROVED") {
             const orderId = payload.resource.id;
             const amountRequestedAfterTax = await captureOrder(orderId);
