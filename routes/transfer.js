@@ -60,7 +60,7 @@ async function getAccessToken() {
 let accessToken = await getAccessToken();
 console.log("Got Access Token:", accessToken);
 
-async function verifyWebhookSignature(headers, payloadArray) {
+async function verifyWebhookSignature(headers, payload) {
     const url = "https://api-m.sandbox.paypal.com/v1/notifications/verify-webhook-signature";
     const webHookId = "9US32710Y7947011C";
     // console.log("HEADERS: ", headers);
@@ -77,11 +77,11 @@ async function verifyWebhookSignature(headers, payloadArray) {
         auth_algo: algo,
         transmission_sig: transmissionSig,
         webhook_id: webHookId,
-        webhook_event: payloadArray
+        webhook_event: payload
     }
 
     console.log("REQ BODY: ");
-    console.log(reqBody);
+    console.log(JSON.stringify(reqBody, null, 2));
 
     const response = await fetch(url, {
         method: "POST",
@@ -212,7 +212,7 @@ router.post(
     "/external/paypal/webhooks/order-complete",
     async (req, res, next) => {
         const payload = req.body;
-        const isVerified = await verifyWebhookSignature(req.headers, Object.entries(qs.parse(req.rawBody)));
+        const isVerified = await verifyWebhookSignature(req.headers, payload);
         console.log("IS VERIFIED: ", isVerified);
         if (payload.event_type === "CHECKOUT.ORDER.APPROVED") {
             const orderId = payload.resource.id;
@@ -225,6 +225,7 @@ router.post(
             if (!isValidEmailFormat(userEmail)) {
                 console.error(`Invalid custom ID: ${userEmail}`);
                 res.status(RESPONSE.BAD_REQUEST).send();
+                return next();
             }
 
             /* update the user balance if we find an array element elem that has a matching orderId */
