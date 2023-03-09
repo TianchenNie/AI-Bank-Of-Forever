@@ -213,7 +213,9 @@ router.post(
     async (req, res, next) => {
         const payload = req.body;
         const isVerified = await verifyWebhookSignature(req.headers, payload);
-        console.log("IS VERIFIED: ", isVerified);
+        if (typeof isVerified == "boolean"){
+            console.log("IS VERIFIED: ", isVerified);
+        }
         if (payload.event_type === "CHECKOUT.ORDER.APPROVED") {
             const orderId = payload.resource.id;
             const amountRequestedAfterTax = await captureOrder(orderId);
@@ -222,6 +224,7 @@ router.post(
                 return next();
             }
             const userEmail = payload.resource.purchase_units[0].custom_id;
+            console.log("GOT CUSTOM ID: ", custom_id);
             if (!isValidEmailFormat(userEmail)) {
                 console.error(`Invalid custom ID: ${userEmail}`);
                 res.status(RESPONSE.BAD_REQUEST).send();
@@ -234,10 +237,29 @@ router.post(
                 .findOneAndUpdate(
                     { email: userEmail },
                     {
-                        $inc: { balance: amountRequestedAfterTax },
-                        $set: { "moneyRequestHistory.$[elem].timeCaptured": Date.now() },
+                        $inc: {
+                            balance: {
+                                $cond: {
+                                    if: {
+                                        moneyRequestHistory: {
+                                            $elemMatch: { orderId: orderId, timeCaptured: null }
+                                        }
+                                    },
+                                    then: amountRequestedAfterTax,
+                                    else: 0
+                                }
+                            }
+                        },
+                        $set: { "moneyRequestHistory.$[orderElem].timeCaptured": Date.now() },
                     },
-                    { arrayFilters: [{ "elem.orderId": orderId }, { "elem.timeCaptured": null }] }
+                    {
+                        arrayFilters: [
+                            {
+                                "orderElem.orderId": orderId,
+                                "orderElem.timeCaptured": null
+                            }
+                        ]
+                    }
                 );
             res.status(RESPONSE.OK).send();
         }
