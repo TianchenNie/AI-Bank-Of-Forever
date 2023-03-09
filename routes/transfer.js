@@ -244,7 +244,7 @@ router.post(
                                 $cond: {
                                     if: {
                                         moneyRequestHistory: {
-                                            $elemMatch: { orderId: orderId, timeCaptured: { $eq: null } }
+                                            $elemMatch: { orderId: orderId, timeCaptured: { $eq: (new Date(0)).toISOString() } }
                                         }
                                     },
                                     then: amountRequestedAfterTax.toString(),
@@ -271,7 +271,7 @@ router.post(
                         arrayFilters: [
                             {
                                 "orderElem.orderId": orderId,
-                                "orderElem.timeCaptured": { $eq: null }
+                                "orderElem.timeCaptured": { $eq: (new Date(0)).toISOString() }
                             }
                         ],
                         new: true
