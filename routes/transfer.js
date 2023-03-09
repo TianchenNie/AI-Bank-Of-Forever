@@ -15,6 +15,7 @@ import paypal from "@paypal/checkout-server-sdk";
 import { User, dbClient } from "../mongodb.js";
 import express from "express";
 import bcrypt from "bcrypt";
+import mongoose from "mongoose";
 import qs from "qs";
 import crypto from "crypto";
 
@@ -238,7 +239,7 @@ router.post(
                     { email: userEmail },
                     [
                         {
-                            $inc: {
+                            $set: {
                                 balance: {
                                     $cond: {
                                         if: {
@@ -250,8 +251,8 @@ router.post(
                                             //     $elemMatch: { orderId: orderId, timeCaptured: null }
                                             // }
                                         },
-                                        then: amountRequestedAfterTax,
-                                        else: "0",
+                                        then: { $add: [ "$balance", mongoose.Types.Decimal128.fromString(amountRequestedAfterTax) ]},
+                                        else: "$balance",
                                     }
                                 }
                             }
