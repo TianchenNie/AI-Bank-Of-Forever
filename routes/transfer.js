@@ -167,7 +167,7 @@ router.post(
             viewUrl: viewLinkObj.href,
             approveUrl: approveLinkObj.href,
             timeCreated: Date.now(),
-            timeCaptured: null,
+            timeCaptured: new Date(0),
         };
 
         await User
