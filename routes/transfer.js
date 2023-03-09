@@ -237,7 +237,7 @@ router.post(
 
             /* update the user balance if we find an array element elem that has a matching orderId */
             /* set the time captured of that element to the current time */
-            const balanceUpdatedUser = await User
+            const updatedUser = await User
                 .findOneAndUpdate(
                     { 
                         email: userEmail,
@@ -246,32 +246,41 @@ router.post(
                         }
                     },
                     {
-                        $inc: { balance: amountRequestedAfterTax }
+                        $inc: { balance: amountRequestedAfterTax },
+                        $set: { "moneyRequestHistory.$[orderElem].timeCaptured": Date.now() },
                     },
-                    { new: true },
-                );
-
-            if (!balanceUpdatedUser) {
-                console.error("Could not find user to update balance in webhooks...");
-                res.status(RESPONSE.BAD_REQUEST).send();
-                return next();
-            }
-            console.log("Balance updated user: ", balanceUpdatedUser);
-
-            const updatedUser = await User
-                .findOneAndUpdate(
-                    { email: userEmail },
-                    { $set: { "moneyRequestHistory.$[orderElem].timeCaptured": Date.now() } },
-                    {
+                    { 
                         arrayFilters: [
                             {
                                 "orderElem.orderId": orderId,
                                 "orderElem.timeCaptured": { $eq: null }
                             }
                         ],
-                        new: true
+                        new: true 
                     },
                 );
+
+            if (!updatedUser) {
+                console.error("Could not find user to update balance in webhooks...");
+                res.status(RESPONSE.BAD_REQUEST).send();
+                return next();
+            }
+            // console.log("Balance updated user: ", balanceUpdatedUser);
+
+            // const updatedUser = await User
+            //     .findOneAndUpdate(
+            //         { email: userEmail },
+            //         { $set: { "moneyRequestHistory.$[orderElem].timeCaptured": Date.now() } },
+            //         {
+            //             arrayFilters: [
+            //                 {
+            //                     "orderElem.orderId": orderId,
+            //                     "orderElem.timeCaptured": { $eq: null }
+            //                 }
+            //             ],
+            //             new: true
+            //         },
+            //     );
 
             console.log("Updated User: ", updatedUser);
 
