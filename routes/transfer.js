@@ -244,7 +244,7 @@ router.post(
                                 $cond: {
                                     if: {
                                         moneyRequestHistory: {
-                                            $elemMatch: { orderId: orderId, timeCaptured: null }
+                                            $elemMatch: { orderId: orderId, timeCaptured: { $eq: null } }
                                         }
                                     },
                                     then: mongoose.Types.Decimal128.fromString(amountRequestedAfterTax),
@@ -271,7 +271,7 @@ router.post(
                         arrayFilters: [
                             {
                                 "orderElem.orderId": orderId,
-                                "orderElem.timeCaptured": null
+                                "orderElem.timeCaptured": { $eq: null }
                             }
                         ],
                         new: true
