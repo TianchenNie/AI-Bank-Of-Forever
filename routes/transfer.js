@@ -224,6 +224,7 @@ router.post(
                 res.status(RESPONSE.BAD_REQUEST).send();
                 return next();
             }
+            console.log("Amount Requested Afer Tax: ", amountRequestedAfterTax);
             const userEmail = payload.resource.purchase_units[0].custom_id;
             console.log("GOT CUSTOM ID: ", userEmail);
             if (!isValidEmailFormat(userEmail)) {
