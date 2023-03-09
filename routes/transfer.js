@@ -264,9 +264,9 @@ router.post(
                                 "orderElem.orderId": orderId,
                                 "orderElem.timeCaptured": null
                             }
-                        ]
+                        ],
+                        new: true
                     },
-                    { new: true }
                 );
             console.log("Updated User: ", updatedUser);
 
