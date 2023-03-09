@@ -97,6 +97,7 @@ export function createOrderObject(requestorEmail, total) {
             {
                 amount: amount,
                 items: items,
+                custom_id: `${requestorEmail}`
             }
         ],
         application_context: {
@@ -104,7 +105,6 @@ export function createOrderObject(requestorEmail, total) {
             shipping_preference: "NO_SHIPPING",
             user_action: "PAY_NOW",
             return_url: `${SERVER_BASE_URL}/api/transfer/external/order-completion-page`,
-            custom_id: `${requestorEmail}`
         },
     }
 
