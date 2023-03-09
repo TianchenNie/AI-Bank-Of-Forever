@@ -31,6 +31,7 @@
     "mongoose": "^6.7.2",
     "node-fetch": "^3.3.0",
     "paypal-rest-sdk": "^1.8.1",
+    "qs": "^6.11.1",
     "uuid": "^9.0.0"
   },
   "devDependencies": {

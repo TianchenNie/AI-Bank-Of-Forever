@@ -6,6 +6,7 @@ import transferRouter from "./routes/transfer.js";
 import testingRouter from "./routes/testing.js";
 import { DB_USERNAME, DB_PASSWORD, PORT, RESPONSE } from "./utils.js";
 import { initializeMongoDB } from "./mongodb.js";
+import qs from "qs";
 
 /*
 api/
@@ -19,8 +20,25 @@ await initializeMongoDB(DB_USERNAME, DB_PASSWORD);
 
 const app = express();
 
+// Register a middleware function that reads the raw request body
+// app.use((req, res, next) => {
+//     let body = '';
+//     req.on('data', chunk => {
+//         body += chunk.toString();
+//     });
+//     req.on('end', () => {
+//         req.rawBody = body;
+//         next();
+//     });
+// });
+
 // http packet body should be in json format
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ 
+    limit: '50mb',
+    verify: (req, res, buf) => {
+        req.rawBody = buf;
+    }
+ }));
 
 // security checks
 app.use(helmet());

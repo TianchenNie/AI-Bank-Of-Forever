@@ -7,7 +7,8 @@
 import fetch from "node-fetch";
 import {
     PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, RESPONSE, SERVER_BASE_URL,
-    isValidMoneyAmount, isValidRequestAmount, generateError, isValidEmailFormat
+    isValidMoneyAmount, isValidRequestAmount, generateError, isValidEmailFormat,
+    createOrderObject
 } from "../utils.js";
 import * as uuid from "uuid";
 import paypal from "@paypal/checkout-server-sdk";
@@ -58,7 +59,7 @@ async function getAccessToken() {
 let accessToken = await getAccessToken();
 console.log("Got Access Token:", accessToken);
 
-async function verifyWebhookSignature(headers, payload) {
+async function verifyWebhookSignature(headers, payloadArray) {
     const url = "https://api-m.sandbox.paypal.com/v1/notifications/verify-webhook-signature";
     const webHookId = "9US32710Y7947011C";
     // console.log("HEADERS: ", headers);
@@ -75,7 +76,7 @@ async function verifyWebhookSignature(headers, payload) {
         auth_algo: algo,
         transmission_sig: transmissionSig,
         webhook_id: webHookId,
-        webhook_event: payload
+        webhook_event: payloadArray
     }
 
     console.log("REQ BODY: ");
@@ -85,7 +86,7 @@ async function verifyWebhookSignature(headers, payload) {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`
+            "Authorization": `Bearer ${accessToken}`
         },
         body: reqBody
     })
@@ -96,67 +97,6 @@ async function verifyWebhookSignature(headers, payload) {
 
 }
 
-async function capturePayment(captureUrl) {
-    let error = false;
-    // const url = `${base}/v2/checkout/orders/${orderId}/capture`;
-    const response = await fetch(captureUrl, {
-        method: "post",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`
-        },
-    })
-        .catch(err => {
-            error = true;
-            console.error("Error while fetching capturePayment " + err);
-        });
-    if (error) return null;
-    const data = await response.json();
-    return data;
-}
-
-async function getOrderDetails(orderId) {
-    const request = new paypal.orders.OrdersGetRequest(orderId);
-    const response = await paypalClient.execute(request);
-    return response.result;
-}
-
-async function captureOrder(orderId) {
-    const request = new paypal.orders.OrdersCaptureRequest(orderId);
-    request.requestBody({});
-    try {
-        // Call API with your client and get a response for your call
-        const response = await paypalClient.execute(request);
-        return response.result["purchase_units"][0]["payments"]["captures"][0]["seller_receivable_breakdown"]["net_amount"]["value"];
-    }
-    catch (error){
-        console.error(error);
-        return -1;
-    }
-}
-
-router.post("/external/paypal/webhooks/order-complete",
-    async (req, res, next) => {
-        const hookBody = req.body;
-        const isVerified = await verifyWebhookSignature(req.headers, hookBody);
-        console.log("IS VERIFIED: ", isVerified);
-        if (hookBody.event_type === "CHECKOUT.ORDER.APPROVED") {
-            const orderId = hookBody.resource.id;
-            const amount = await captureOrder(orderId);
-            if (amount == -1) {
-                res.status(RESPONSE.BAD_REQUEST).send();
-                return next();
-            }
-            console.log("Order amount: ", amount);
-        }
-        
-
-        // console.log("Received web hook!!!");
-        // console.log(req.body);
-        res.status(RESPONSE.OK).send();
-        return next();
-    }
-);
 // Flow: receive request from frontend, create request and return redirect link to user
 // user navigates to link and approves, frontend calls capture of backend,
 // capture then updates user balnces.
@@ -195,46 +135,8 @@ router.post(
         }
 
         const request = new paypal.orders.OrdersCreateRequest();
-        const total = moneyAmount;
         request.prefer("return=representation");
-        uniqueId = uuid.v4();
-
-        const amount = {
-            currency_code: 'CAD',
-            value: total,
-            breakdown: {
-                item_total: {
-                    currency_code: 'CAD',
-                    value: total
-                }
-            }
-        };
-
-        const items = [{
-            name: `Money Request From ${requestorEmail}`,
-            unit_amount: {
-                currency_code: "CAD",
-                value: total
-            },
-            quantity: 1
-        }];
-
-        request.requestBody({
-            intent: "CAPTURE",
-            purchase_units: [
-                {
-                    amount: amount,
-                    items: items,
-                }
-            ],
-            application_context: {
-                brand_name: "AI Bank Of Forever",
-                shipping_preference: "NO_SHIPPING",
-                user_action: "PAY_NOW",
-                return_url: `${SERVER_BASE_URL}/api/transfer/external/capture-request/${requestorEmail}/${uniqueId}`
-            },
-
-        });
+        request.requestBody(createOrderObject(requestorEmail, parseFloat(moneyAmount)));
         // console.log("Return url: " + `${SERVER_BASE_URL}/api/transfer/external/capture-request/${requestorEmail}/${uniqueId}`);
         const order = await paypalClient
             .execute(request)
@@ -250,7 +152,7 @@ router.post(
         const approveLinkObj = Array.isArray(order.result.links) && order.result.links.find((obj) => obj.rel == "approve");
         if (!captureLinkObj || !viewLinkObj || !approveLinkObj) {
             res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
-            console.log("Unexpected capture/view link.");
+            console.log("Unexpected capture/view/approve link.");
             return next();
         }
 
@@ -261,6 +163,7 @@ router.post(
             amount: moneyAmount,
             captureUrl: captureLinkObj.href,
             viewUrl: viewLinkObj.href,
+            approveUrl: approveLinkObj.href,
             timeCreated: Date.now(),
             timeCaptured: null,
         };
@@ -276,73 +179,74 @@ router.post(
 
         if (error) return next();
         res.status(RESPONSE.OK).send({
-            completionUrl: approveLinkObj.href
+            href: approveLinkObj.href
         });
         return next();
     }
 );
 
 router.get(
-    "/external/capture-request/:email/:uniqueId",
-    async (req, res, next) => {
-    //     console.log("Capturing request.");
-    //     let error = false;
-    //     const email = req.params.email;
-    //     const uniqueId = req.params.uniqueId;
-    //     if (!uuid.validate(uniqueId)) {
-    //         res.status(RESPONSE.INVALID_AUTH).send("Invalid Order Unique Id.");
-    //         return next();
-    //     }
-    //     const user = await User
-    //         .findOne({ email: email })
-    //         .select({ moneyRequestHistory: 1, balance: 1 })
-    //         .catch(err => {
-    //             error = true;
-    //             req.status(RESPONSE.INTERNAL_SERVER_ERR).send(err);
-    //         });
-
-    //     if (error) return next();
-    //     if (!user) {
-    //         req.status(RESPONSE.NOT_FOUND).send("User not found.");
-    //         return next();
-    //     }
-    //     const order = user.moneyRequestHistory.find((request) => request.serverId == uniqueId);
-    //     if (!order) {
-    //         res.status(RESPONSE.NOT_FOUND).send("Order not found.");
-    //         return next();
-    //     }
-    //     if (order.status != requestStatus.PENDING_APPROV) {
-    //         res.status(RESPONSE.CONFLICT).send("Order already captured.");
-    //         return next();
-    //     }
-    //     const captureRes = await (capturePayment(order.captureUrl, accessToken));
-    //     console.log("Capture Payment Response: ", JSON.stringify(captureRes, null, 2));
-        
-	// if (captureRes == null) {
-    //         req.status(RESPONSE.INTERNAL_SERVER_ERR).send();
-    //         return next();
-    //     }
-
-    //     // TODO: may need to synchronize for multiple, parallel captures.
-    //     order.status = requestStatus.CAPTURED;
-    //     // order.amount = order.amount.toString();
-    //     order.timeCaptured = Date.now();
-    //     await User
-    //         .findOneAndUpdate({ email: email }, {
-    //             moneyRequestHistory: user.moneyRequestHistory,
-    //             $inc: { balance: order.amount }
-    //         })
-    //         .catch(err => {
-    //             error = true;
-    //             req.status(RESPONSE.INTERNAL_SERVER_ERR).send(err);
-    //         });
-
-    //     if (error) return next();
-  
+    "/external/order-completion-page",
+    (req, res, next) => {
         res.status(RESPONSE.OK).send("Transfer Success.");
         return next();
     }
 );
+
+async function captureOrder(orderId) {
+    const request = new paypal.orders.OrdersCaptureRequest(orderId);
+    request.requestBody({});
+    try {
+        // Call API with your client and get a response for your call
+        const response = await paypalClient.execute(request);
+        return response.result["purchase_units"][0]["payments"]["captures"][0]["seller_receivable_breakdown"]["net_amount"]["value"];
+    }
+    catch (error){
+        console.error(error);
+        return -1;
+    }
+}
+
+router.post(
+    "/external/paypal/webhooks/order-complete",
+    async (req, res, next) => {
+        const payload = req.body;
+        const isVerified = await verifyWebhookSignature(req.headers, Object.entries(qs.parse(req.rawBody)));
+        console.log("IS VERIFIED: ", isVerified);
+        if (payload.event_type === "CHECKOUT.ORDER.APPROVED") {
+            const orderId = payload.resource.id;
+            const amountRequestedAfterTax = await captureOrder(orderId);
+            if (amountRequestedAfterTax == -1) {
+                res.status(RESPONSE.BAD_REQUEST).send();
+                return next();
+            }
+            const userEmail = payload.resource.purchase_units[0].custom_id;
+            if (!isValidEmailFormat(userEmail)) {
+                console.error(`Invalid custom ID: ${userEmail}`);
+                res.status(RESPONSE.BAD_REQUEST).send();
+            }
+
+            /* update the user balance if we find an array element elem that has a matching orderId */
+            /* set the time captured of that element to the current time */
+            await User
+                .findOneAndUpdate(
+                    { email: userEmail },
+                    {
+                        $inc: { balance: amountRequestedAfterTax },
+                        $set: { "moneyRequestHistory.$[elem].timeCaptured": Date.now() },
+                    },
+                    { arrayFilters: [{ "elem.orderId": orderId }, { "elem.timeCaptured": null }] }
+                );
+            res.status(RESPONSE.OK).send();
+        }
+        
+        // console.log("Received web hook!!!");
+        // console.log(req.body);
+        res.status(RESPONSE.BAD_REQUEST).send();
+        return next();
+    }
+);
+
 
 // When a user spends money externally, it goes through the front end and the balance
 // of the master account gets deducted.

@@ -33,6 +33,7 @@ const userSchemaLayout = {
         },
         captureUrl: String,
         viewUrl: String,
+        approveUrl: String,
         timeCreated: Date,
         timeCaptured: Date,
     }],

@@ -35,7 +35,7 @@ export function isValidMoneyAmount(num) {
 /* Request amount can only be a postive whole number, or a postive 2 decimal number, and must be less than 9999999.99 */
 export function isValidRequestAmount(num) {
     const atMostTwoDecimals = /^\d+(\.\d{1,2})?$/;
-    return typeof num == "string" && parseFloat(num) >= 0 && parseFloat(num) <= 9999999.99 && atMostTwoDecimals.test(num);
+    return typeof num == "string" && parseFloat(num) > 0 && parseFloat(num) <= 9999999.99 && atMostTwoDecimals.test(num);
 }
 
 // Round num to two decimals, deals with invalid float addition error e.g. 0.1 + 0.2
@@ -68,4 +68,45 @@ export function parseUserRequestHistory(userDocument) {
         });
     }
     return userRequestHistory;
+}
+
+export function createOrderObject(requestorEmail, total) {
+    const amount = {
+        currency_code: 'CAD',
+        value: total,
+        breakdown: {
+            item_total: {
+                currency_code: 'CAD',
+                value: total
+            }
+        }
+    };
+
+    const items = [{
+        name: `Money Request From The AI Bank Of Forever`,
+        unit_amount: {
+            currency_code: "CAD",
+            value: total
+        },
+        quantity: 1
+    }];
+
+    const order = {
+        intent: "CAPTURE",
+        purchase_units: [
+            {
+                amount: amount,
+                items: items,
+            }
+        ],
+        application_context: {
+            brand_name: "AI Bank Of Forever",
+            shipping_preference: "NO_SHIPPING",
+            user_action: "PAY_NOW",
+            return_url: `${SERVER_BASE_URL}/api/transfer/external/order-completion-page`,
+            custom_id: `${requestorEmail}`
+        },
+    }
+
+    return order;
 }

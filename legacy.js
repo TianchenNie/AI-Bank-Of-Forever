@@ -113,3 +113,90 @@ router.put(
 //         }
 //     }
 // },
+
+async function capturePayment(captureUrl) {
+    let error = false;
+    // const url = `${base}/v2/checkout/orders/${orderId}/capture`;
+    const response = await fetch(captureUrl, {
+        method: "post",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`
+        },
+    })
+        .catch(err => {
+            error = true;
+            console.error("Error while fetching capturePayment " + err);
+        });
+    if (error) return null;
+    const data = await response.json();
+    return data;
+}
+
+async function getOrderDetails(orderId) {
+    const request = new paypal.orders.OrdersGetRequest(orderId);
+    const response = await paypalClient.execute(request);
+    return response.result;
+}
+
+router.get(
+    "/external/capture-request/:email/:uniqueId",
+    async (req, res, next) => {
+    //     console.log("Capturing request.");
+    //     let error = false;
+    //     const email = req.params.email;
+    //     const uniqueId = req.params.uniqueId;
+    //     if (!uuid.validate(uniqueId)) {
+    //         res.status(RESPONSE.INVALID_AUTH).send("Invalid Order Unique Id.");
+    //         return next();
+    //     }
+    //     const user = await User
+    //         .findOne({ email: email })
+    //         .select({ moneyRequestHistory: 1, balance: 1 })
+    //         .catch(err => {
+    //             error = true;
+    //             req.status(RESPONSE.INTERNAL_SERVER_ERR).send(err);
+    //         });
+
+    //     if (error) return next();
+    //     if (!user) {
+    //         req.status(RESPONSE.NOT_FOUND).send("User not found.");
+    //         return next();
+    //     }
+    //     const order = user.moneyRequestHistory.find((request) => request.serverId == uniqueId);
+    //     if (!order) {
+    //         res.status(RESPONSE.NOT_FOUND).send("Order not found.");
+    //         return next();
+    //     }
+    //     if (order.status != requestStatus.PENDING_APPROV) {
+    //         res.status(RESPONSE.CONFLICT).send("Order already captured.");
+    //         return next();
+    //     }
+    //     const captureRes = await (capturePayment(order.captureUrl, accessToken));
+    //     console.log("Capture Payment Response: ", JSON.stringify(captureRes, null, 2));
+        
+	// if (captureRes == null) {
+    //         req.status(RESPONSE.INTERNAL_SERVER_ERR).send();
+    //         return next();
+    //     }
+
+    //     // TODO: may need to synchronize for multiple, parallel captures.
+    //     order.status = requestStatus.CAPTURED;
+    //     // order.amount = order.amount.toString();
+    //     order.timeCaptured = Date.now();
+    //     await User
+    //         .findOneAndUpdate({ email: email }, {
+    //             moneyRequestHistory: user.moneyRequestHistory,
+    //             $inc: { balance: order.amount }
+    //         })
+    //         .catch(err => {
+    //             error = true;
+    //             req.status(RESPONSE.INTERNAL_SERVER_ERR).send(err);
+    //         });
+
+    //     if (error) return next();
+  
+        res.status(RESPONSE.OK).send("Transfer Success.");
+        return next();
+    }
+);
