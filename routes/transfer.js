@@ -234,31 +234,38 @@ router.post(
 
             /* update the user balance if we find an array element elem that has a matching orderId */
             /* set the time captured of that element to the current time */
+            const balanceUpdatedUser = await User
+                .findOneAndUpdate(
+                    { email: userEmail },
+                    {
+                        $inc: {
+                            balance: {
+                                $cond: {
+                                    if: {
+                                        moneyRequestHistory: {
+                                            $elemMatch: { orderId: orderId, timeCaptured: null }
+                                        }
+                                    },
+                                    then: mongoose.Types.Decimal128.fromString(amountRequestedAfterTax),
+                                    else: "0",
+                                }
+                            }
+                        }
+                    },
+                    { new: true },
+                );
+
+            if (!balanceUpdatedUser) {
+                console.error("Could not find user to update balance in webhooks...");
+                res.status(RESPONSE.BAD_REQUEST).send();
+                return next();
+            }
+            console.log("Balance updated user: ", balanceUpdatedUser);
+
             const updatedUser = await User
                 .findOneAndUpdate(
                     { email: userEmail },
-                    [
-                        {
-                            $set: {
-                                balance: {
-                                    $cond: {
-                                        if: {
-                                            $and: [
-                                                { $eq: [ "$$orderElem.orderId", orderId ] },
-                                                { $eq: [ "$$orderElem.timeCaptured", null ]}
-                                            ]
-                                            // moneyRequestHistory: {
-                                            //     $elemMatch: { orderId: orderId, timeCaptured: null }
-                                            // }
-                                        },
-                                        then: { $add: [ "$balance", mongoose.Types.Decimal128.fromString(amountRequestedAfterTax) ]},
-                                        else: "$balance",
-                                    }
-                                }
-                            }
-                        },
-                        { $set: { "moneyRequestHistory.$[orderElem].timeCaptured": Date.now() } },
-                    ],
+                    { $set: { "moneyRequestHistory.$[orderElem].timeCaptured": Date.now() } },
                     {
                         arrayFilters: [
                             {
@@ -269,6 +276,7 @@ router.post(
                         new: true
                     },
                 );
+
             console.log("Updated User: ", updatedUser);
 
             res.status(RESPONSE.OK).send();
