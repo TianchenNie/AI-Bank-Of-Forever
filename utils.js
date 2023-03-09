@@ -59,7 +59,6 @@ export function parseUserRequestHistory(userDocument) {
         userRequestHistory.push({
             serverId: entry.serverId,
             orderId: entry.orderId,
-            status: entry.status,
             amount: entry.amount.toString(),
             captureUrl: entry.captureUrl,
             viewUrl: entry.viewUrl,

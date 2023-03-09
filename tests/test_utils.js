@@ -99,7 +99,6 @@ export async function createUsersWithRandHistories(postUrl, numUsers, maxHistory
             const entry = {
                 serverId: uuid.v4(),
                 orderId: uuid.v4(),
-                status: status,
                 amount: rand.multipliedBy(Math.random() * 10 ** 10).multipliedBy(Math.random() * 10 ** 10).toFixed(2),
                 captureUrl: chance.url(),
                 viewUrl: chance.url(),

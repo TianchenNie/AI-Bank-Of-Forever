@@ -15,7 +15,6 @@ import paypal from "@paypal/checkout-server-sdk";
 import { User, dbClient } from "../mongodb.js";
 import express from "express";
 import bcrypt from "bcrypt";
-import mongoose from "mongoose";
 import qs from "qs";
 import crypto from "crypto";
 
@@ -71,6 +70,20 @@ async function verifyWebhookSignature(headers, payload) {
     const certUrl = headers['paypal-cert-url'];
     const transmissionSig = headers['paypal-transmission-sig'];
 
+    const sortKeysAlphabetically = (key, value) => {
+        if (typeof value === 'object' && value !== null) {
+            const sortedObj = {};
+            Object.keys(value).sort().forEach(subKey => {
+                sortedObj[subKey] = sortKeysAlphabetically(subKey, value[subKey]);
+            });
+            return sortedObj;
+        }
+        return value;
+    };
+    
+    const payloadStr = JSON.stringify(payload);
+    const payloadObj = JSON.parse(payloadStr, sortKeysAlphabetically);
+
     const reqBody = {
         transmission_id: transmissionId,
         transmission_time: transmissionTime,
@@ -78,7 +91,7 @@ async function verifyWebhookSignature(headers, payload) {
         auth_algo: algo,
         transmission_sig: transmissionSig,
         webhook_id: webHookId,
-        webhook_event: payload
+        webhook_event: payloadObj
     }
 
     console.log("REQ BODY: ");
@@ -161,7 +174,6 @@ router.post(
         const newMoneyRequest = {
             serverId: uniqueId,
             orderId: orderId,
-            status: requestStatus.PENDING_APPROV,
             amount: moneyAmount,
             captureUrl: captureLinkObj.href,
             viewUrl: viewLinkObj.href,
@@ -199,7 +211,6 @@ async function captureOrder(orderId) {
     const request = new paypal.orders.OrdersCaptureRequest(orderId);
     request.requestBody({});
     try {
-        // Call API with your client and get a response for your call
         const response = await paypalClient.execute(request);
         return response.result["purchase_units"][0]["payments"]["captures"][0]["seller_receivable_breakdown"]["net_amount"]["value"];
     }
@@ -224,11 +235,8 @@ router.post(
                 res.status(RESPONSE.BAD_REQUEST).send();
                 return next();
             }
-            console.log("Amount Requested Afer Tax: ", amountRequestedAfterTax);
-            console.log("Order ID: ", orderId);
-            console.log("Type of order ID: ", typeof orderId);
             const userEmail = payload.resource.purchase_units[0].custom_id;
-            console.log("GOT CUSTOM ID: ", userEmail);
+            // console.log("GOT CUSTOM ID: ", userEmail);
             if (!isValidEmailFormat(userEmail)) {
                 console.error(`Invalid custom ID: ${userEmail}`);
                 res.status(RESPONSE.BAD_REQUEST).send();
@@ -261,26 +269,10 @@ router.post(
                 );
 
             if (!updatedUser) {
-                console.error("Could not find user to update balance in webhooks...");
+                console.error("Could not find user to update in webhooks...");
                 res.status(RESPONSE.BAD_REQUEST).send();
                 return next();
             }
-            // console.log("Balance updated user: ", balanceUpdatedUser);
-
-            // const updatedUser = await User
-            //     .findOneAndUpdate(
-            //         { email: userEmail },
-            //         { $set: { "moneyRequestHistory.$[orderElem].timeCaptured": Date.now() } },
-            //         {
-            //             arrayFilters: [
-            //                 {
-            //                     "orderElem.orderId": orderId,
-            //                     "orderElem.timeCaptured": { $eq: null }
-            //                 }
-            //             ],
-            //             new: true
-            //         },
-            //     );
 
             console.log("Updated User: ", updatedUser);
 

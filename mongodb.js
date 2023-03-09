@@ -19,7 +19,6 @@ const userSchemaLayout = {
     moneyRequestHistory: [{
         serverId: String,
         orderId: String,
-        status: String,
         amount: {
             type: mongoose.Types.Decimal128,
             set: (value) => {

@@ -200,3 +200,21 @@ router.get(
         return next();
     }
 );
+
+
+// console.log("Balance updated user: ", balanceUpdatedUser);
+
+// const updatedUser = await User
+//     .findOneAndUpdate(
+//         { email: userEmail },
+//         { $set: { "moneyRequestHistory.$[orderElem].timeCaptured": Date.now() } },
+//         {
+//             arrayFilters: [
+//                 {
+//                     "orderElem.orderId": orderId,
+//                     "orderElem.timeCaptured": { $eq: null }
+//                 }
+//             ],
+//             new: true
+//         },
+//     );
