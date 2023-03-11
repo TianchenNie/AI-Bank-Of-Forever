@@ -6,7 +6,6 @@ import transferRouter from "./routes/transfer.js";
 import testingRouter from "./routes/testing.js";
 import { DB_USERNAME, DB_PASSWORD, PORT, RESPONSE } from "./utils.js";
 import { initializeMongoDB } from "./mongodb.js";
-import qs from "qs";
 
 /*
 api/
@@ -35,9 +34,6 @@ const app = express();
 // http packet body should be in json format
 app.use(express.json({ 
     limit: '50mb',
-    verify: (req, res, buf) => {
-        req.rawBody = buf;
-    }
  }));
 
 // security checks

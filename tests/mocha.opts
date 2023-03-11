@@ -1,0 +1,2 @@
+--reporter-options maxDiffSize=1000000
+--reporter mocha-junit-reporter --reporter-options mochaFile=transfer-test-results.xml

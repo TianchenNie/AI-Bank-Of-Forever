@@ -109,3 +109,15 @@ export function createOrderObject(requestorEmail, total) {
 
     return order;
 }
+
+/* Exponential backoff with jitter used by TCP to calculate retry time
+   In our case this is used to calculate the interval to retry a transaction 
+   https://cloud.google.com/iot/docs/how-tos/exponential-backoff */
+export function exponentialBackoff(n, maximumBackoff) {
+    let exponential = 2 ** n;
+    if (exponential > maximumBackoff) {
+        exponential = maximumBackoff;
+    }
+    const backOffTime = exponential + (Math.random() * 1000);
+    return Math.min(maximumBackoff, Math.random() * backOffTime);
+}

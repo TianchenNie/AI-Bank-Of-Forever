@@ -2,10 +2,75 @@ import { RESPONSE, isValidEmailFormat, isValidMoneyAmount, parseUserRequestHisto
 import { User, dbClient } from "../mongodb.js";
 import express from "express";
 import bcrypt from "bcrypt";
+import { Chance } from "chance";
+import BigNumber from "bignumber.js";
 
 
 const router = express.Router();
 const saltRounds = 12;
+
+router.post(
+    '/new-rand',
+    async (req, res, next) => {
+        const chance = new Chance();
+        const email = chance.email();
+        const password = "1234";
+        const rand = new BigNumber(Math.random());
+        const balance = rand.multipliedBy(Math.random() * 10 ** 10).multipliedBy(Math.random() * 10 ** 10).toFixed(2);
+        // check if parameters are valid
+        if (!email || !isValidEmailFormat(email)) {
+            res.status(RESPONSE.BAD_REQUEST).send("Please enter a valid email.");
+            return next();
+        }
+        // TODO: ask professor what password format he wants
+        else if (!password) {
+            res.status(RESPONSE.BAD_REQUEST).send("Please enter a valid password.");
+            return next();
+        }
+        else if (!isValidMoneyAmount(balance)) {
+            res.status(RESPONSE.BAD_REQUEST).send("Please enter a valid balance.");
+            return next();
+        }
+
+        const session = await dbClient.startSession();
+        await session.startTransaction();
+        const newUser = {
+            email: email,
+            password: bcrypt.hashSync(password, saltRounds),
+            balance: balance,
+            moneyRequestHistory: []
+        };
+        try {
+            const userExists = await User
+                .findOne({ "email": email })
+                .session(session);
+
+            if (userExists) {
+                await session.abortTransaction();
+                await session.endSession();
+                res.status(RESPONSE.CONFLICT).send(`User account with email ${email} already exists.`);
+                return next();
+            }
+
+            const newUserModel = new User(newUser);
+
+            await newUserModel.save({ session });
+
+            await session.commitTransaction();
+            await session.endSession();
+
+
+        } catch (error) {
+            await session.abortTransaction();
+            await session.endSession();
+            res.status(RESPONSE.INTERNAL_SERVER_ERR).send(error);
+            return next();
+        }
+        res.status(RESPONSE.CREATED).send(newUser);
+        return next();
+    }
+);
+
 // used for testing purposes.
 router.post(
     '/new-with-balance',

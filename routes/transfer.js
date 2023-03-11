@@ -8,15 +8,12 @@ import fetch from "node-fetch";
 import {
     PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, RESPONSE, SERVER_BASE_URL,
     isValidMoneyAmount, isValidRequestAmount, generateError, isValidEmailFormat,
-    createOrderObject
+    createOrderObject, exponentialBackoff
 } from "../utils.js";
-import * as uuid from "uuid";
 import paypal from "@paypal/checkout-server-sdk";
 import { User, dbClient } from "../mongodb.js";
 import express from "express";
 import bcrypt from "bcrypt";
-import qs from "qs";
-import crypto from "crypto";
 
 const router = express.Router();
 
@@ -26,11 +23,6 @@ const paypalClient = new paypal.core.PayPalHttpClient(new paypal.core.SandboxEnv
 // TODO: update after go live, this link is for sandbox environment.
 const base = "https://api.sandbox.paypal.com";
 
-const requestStatus = Object.freeze({
-    PENDING_APPROV: "pending-approval",
-    CAPTURED: "captured-by-server",
-});
-// get access token
 // Note need to recall as access tokens can expire.
 // Handle 401 no auth from paypal.
 async function getAccessToken() {
@@ -80,7 +72,7 @@ async function verifyWebhookSignature(headers, payload) {
         }
         return value;
     };
-    
+
     const payloadStr = JSON.stringify(payload);
     const payloadObj = JSON.parse(payloadStr, sortKeysAlphabetically);
 
@@ -92,7 +84,7 @@ async function verifyWebhookSignature(headers, payload) {
         transmission_sig: transmissionSig,
         webhook_id: webHookId,
         webhook_event: payloadObj
-    }
+    };
 
     console.log("REQ BODY: ");
     console.log(JSON.stringify(reqBody, null, 2));
@@ -105,9 +97,9 @@ async function verifyWebhookSignature(headers, payload) {
         },
         body: reqBody
     })
-    .catch(err => {
-        console.error(err);
-    });
+        .catch(err => {
+            console.error(err);
+        });
     return response;
 
 }
@@ -126,7 +118,7 @@ router.post(
         const requestorPassword = req.body.password;
         const moneyAmount = req.body.amount;
         if (!isValidRequestAmount(moneyAmount)) {
-            res.status(RESPONSE.BAD_REQUEST).send("Amount to request is invalid. Must be less than or equal to 9999999.99.");
+            res.status(RESPONSE.BAD_REQUEST).send(generateError("Amount to request is invalid. Must be less than or equal to 9999999.99."));
             return next();
         }
 
@@ -135,7 +127,7 @@ router.post(
             .select({ password: 1 })
             .catch(msg => {
                 error = true;
-                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
+                res.status(RESPONSE.INTERNAL_SERVER_ERR).send(generateError(msg));
             });
 
         if (error) return next();
@@ -214,7 +206,7 @@ async function captureOrder(orderId) {
         const response = await paypalClient.execute(request);
         return response.result["purchase_units"][0]["payments"]["captures"][0]["seller_receivable_breakdown"]["net_amount"]["value"];
     }
-    catch (error){
+    catch (error) {
         console.error(error);
         return -1;
     }
@@ -226,7 +218,7 @@ router.post(
         const payload = req.body;
         const isVerified = await verifyWebhookSignature(req.headers, payload);
         console.log("*********** IS VERIFIED ************: ", isVerified);
-        
+
         if (payload.event_type === "CHECKOUT.ORDER.APPROVED") {
             const orderId = payload.resource.id;
             const amountRequestedAfterTax = await captureOrder(orderId);
@@ -246,7 +238,7 @@ router.post(
             /* set the time captured of that element to the current time */
             const updatedUser = await User
                 .findOneAndUpdate(
-                    { 
+                    {
                         email: userEmail,
                         moneyRequestHistory: {
                             $elemMatch: { orderId: orderId, timeCaptured: { $eq: null } }
@@ -256,14 +248,14 @@ router.post(
                         $inc: { balance: amountRequestedAfterTax },
                         $set: { "moneyRequestHistory.$[orderElem].timeCaptured": Date.now() },
                     },
-                    { 
+                    {
                         arrayFilters: [
                             {
                                 "orderElem.orderId": orderId,
                                 "orderElem.timeCaptured": { $eq: null }
                             }
                         ],
-                        new: true 
+                        new: true
                     },
                 );
 
@@ -277,7 +269,7 @@ router.post(
 
             res.status(RESPONSE.OK).send();
         }
-        
+
         // console.log("Received web hook!!!");
         // console.log(req.body);
         res.status(RESPONSE.BAD_REQUEST).send();
@@ -357,7 +349,6 @@ router.post(
     "/internal",
     async (req, res, next) => {
         // console.log("Handling internal transfer with write concern: ", dbClient.writeConcern);
-
         const sender = req.body.sender;
         const receiver = req.body.receiver;
         const senderPassword = req.body.senderPassword;
@@ -379,6 +370,10 @@ router.post(
             res.status(RESPONSE.BAD_REQUEST).send(generateError("Invalid sender password format."));
             return next();
         }
+        if (sender == receiver) {
+            res.status(RESPONSE.BAD_REQUEST).send(generateError("Unexpected same sender and receiver."));
+            return next();
+        }
         let error = false;
 
         /* check if receiver exists */
@@ -386,7 +381,7 @@ router.post(
             .findOne({ email: receiver })
             .catch(msg => {
                 error = true;
-                // console.log("User balance find error: ", msg);
+                console.error("Internal error when finding receiver: ", msg);
                 res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
             });
 
@@ -397,60 +392,83 @@ router.post(
             return next();
         }
 
-        const session = await dbClient.startSession();
-        await session.startTransaction();
-        try {
-            const sendUser = await User.findOne( { email: sender }, null, { session: session });
-            if (sendUser == null) {
-                await session.abortTransaction();
-                await session.endSession();
-                res.status(RESPONSE.NOT_FOUND).send(generateError(`Could not find sender with email ${sender}.`));
-                return next();
-            }
-
-            const hashedPassword = sendUser.password;
-            if (!bcrypt.compareSync(senderPassword, hashedPassword)) {
-                await session.abortTransaction();
-                await session.endSession();
-                res.status(RESPONSE.INVALID_AUTH).send(generateError("Incorrect sender password."));
-                return next();
-            }
-            const sendUserUpdated = await User
-                .findOneAndUpdate({ email: sender, password: hashedPassword, balance: { $gte: moneyAmount } },
-                    { $inc: { balance: "-" + moneyAmount } },
-                    { session: session, new: true }
-                );
-            // console.log("Finished updating sender");
-            if (sendUserUpdated == null) {
-                await session.abortTransaction();
-                await session.endSession();
-                res.status(RESPONSE.NOT_FOUND).send(generateError("Insufficient funds in sender account."));
-                return next();
-            }
-
-            const receiveUserUpdated = await User
-                .findOneAndUpdate({ email: receiver },
-                    { $inc: { balance: moneyAmount } },
-                    { session: session, new: true }
-                );
-            // console.log("Finished updating receiver");
-
-            await session.commitTransaction();
-            await session.endSession();
-            res.status(RESPONSE.OK).send({
-                senderBalance: sendUserUpdated.balance.toString(),
-                receiverBalance: receiveUserUpdated.balance.toString()
+        /* check if sender exists and password matches */
+        const sendUser = await User
+            .findOne({ email: sender })
+            .catch(msg => {
+                error = true;
+                console.error("Internal error when finding receiver: ", msg);
+                res.status(RESPONSE.INTERNAL_SERVER_ERR).send();
             });
+        if (error) return next();
+        if (sendUser == null) {
+            res.status(RESPONSE.NOT_FOUND).send(generateError(`Could not find sender with email ${sender}.`));
             return next();
+        }
 
-        }
-        catch (error) {
-            console.error("Error: ", error);
-            await session.abortTransaction();
-            await session.endSession();
-            res.status(RESPONSE.INTERNAL_SERVER_ERR).send(generateError(error));
+        const hashedPassword = sendUser.password;
+        if (!bcrypt.compareSync(senderPassword, hashedPassword)) {
+            res.status(RESPONSE.INVALID_AUTH).send(generateError("Incorrect sender password."));
             return next();
         }
+
+        // maximum retry delay of 128 seconds
+        const MAX_BACKOFF = 128000;
+        const maxRetries = 100;
+        let retries = 0;
+        /* Use transaction here to ensure receiver and sender balance updates are atomic */
+        const session = await dbClient.startSession();
+        while (retries < maxRetries) {
+            await session.startTransaction();
+            try {
+                const sendUserUpdated = await User
+                    .findOneAndUpdate({ email: sender, password: hashedPassword, balance: { $gte: moneyAmount } },
+                        { $inc: { balance: "-" + moneyAmount } },
+                        { session: session, new: true }
+                    );
+                // console.log("Finished updating sender");
+                if (sendUserUpdated == null) {
+                    await session.abortTransaction();
+                    await session.endSession();
+                    res.status(RESPONSE.BAD_REQUEST).send(generateError("Insufficient funds in sender account."));
+                    return next();
+                }
+
+                const receiveUserUpdated = await User
+                    .findOneAndUpdate({ email: receiver },
+                        { $inc: { balance: moneyAmount } },
+                        { session: session, new: true }
+                    );
+
+                if (receiveUserUpdated == null) {
+                    await session.abortTransaction();
+                    await session.endSession();
+                    res.status(RESPONSE.NOT_FOUND).send(generateError("Unexpected could not find receiver."));
+                    return next();
+                }
+                // console.log("Finished updating receiver");
+                await session.commitTransaction();
+                await session.endSession();
+                res.status(RESPONSE.OK).send({
+                    senderBalance: sendUserUpdated.balance.toString(),
+                    receiverBalance: receiveUserUpdated.balance.toString()
+                });
+                return next();
+            }
+            catch (error) {
+                await session.abortTransaction();
+                retries++;
+                if (retries == maxRetries) {
+                    break;
+                }
+                const delay = exponentialBackoff(retries, MAX_BACKOFF);
+                await new Promise((resolve) => setTimeout(resolve, delay));
+            }
+        }
+        console.error(`Transfer failed after ${maxRetries} retries.`);
+        await session.endSession();
+        res.status(RESPONSE.INTERNAL_SERVER_ERR).send(generateError(`Transfer failed after ${maxRetries} retries.`));
+        return next();
     }
 );
 
