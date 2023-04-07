@@ -4,7 +4,7 @@ import BigNumber from "bignumber.js";
 const users = JSON.parse(fs.readFileSync("./initial_users.json"));
 const dumpFile = `./spend_worker_dumps/dump_worker_${process.argv[2]}.json`;
 const numUsers = users.length;
-const baseUrl = process.env.TEST_SERVER == '1' ? "http://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
+const baseUrl = process.env.TEST_SERVER == '1' ? "https://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
 const spendUrl = baseUrl + "/transfer/spend"
 const deltas = [];
 for (let i = 0; i < numUsers; i++) {

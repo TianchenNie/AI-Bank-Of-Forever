@@ -1,10 +1,10 @@
 import * as chai from "chai";
-import { createUsersWithDuplicates, clearCollection, getAllUsers } from "./test_utils.js";
+import { createUsersWithDuplicates, clearCollection, getAllUsers } from "../test_utils.js";
 import bcrypt from "bcrypt";
 const numUsers = 100;
 describe("** User Creation Test Suite **", function () {
     const expect = chai.expect;
-    const baseUrl = process.env.TEST_SERVER == '1' ? "http://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
+    const baseUrl = process.env.TEST_SERVER == '1' ? "https://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
     const postUrl = baseUrl + "/user-info/new";
     const getUrl = baseUrl + "/testing/all-users";
     const clearUrl = baseUrl + "/testing/clear-users";

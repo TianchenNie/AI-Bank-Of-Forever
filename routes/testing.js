@@ -138,6 +138,7 @@ router.post(
     async (req, res, next) => {
         const email = req.body.email;
         const password = req.body.password;
+        const balance = req.body.balance;
         const history = req.body.history;
         // console.log("HISTORY: ", history);
         // check if parameters are valid
@@ -156,7 +157,7 @@ router.post(
         const newUser = {
             email: email,
             password: bcrypt.hashSync(password, saltRounds),
-            balance: "0.00",
+            balance: balance,
             moneyRequestHistory: history
         };
         try {

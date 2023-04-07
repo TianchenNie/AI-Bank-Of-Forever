@@ -1,11 +1,11 @@
 import * as chai from "chai";
-import { createUsersWithRandBalances, clearCollection, createUsersWithRandHistories } from "./test_utils.js";
+import { createUsersWithRandBalances, clearCollection, createUsersWithRandHistories } from "../test_utils.js";
 
 
 const numUsers = 100;
 describe("** Account Info Test Suite **", function () {
     // console.log("TEST SERVER: ", process.env.TEST_SERVER);
-    const baseUrl = process.env.TEST_SERVER == '1' ? "http://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
+    const baseUrl = process.env.TEST_SERVER == '1' ? "https://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
     const expect = chai.expect;
     const clearUrl = baseUrl + "/testing/clear-users";
     it(`1. Test account balance retrieval of ${numUsers} users on ${baseUrl}.`, async function () {

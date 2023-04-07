@@ -2,7 +2,8 @@ import { roundToTwoDecimals } from "../utils.js";
 import { Chance } from "chance";
 import BigNumber from "bignumber.js";
 import * as uuid from "uuid";
-
+import axios from "axios";
+import https from "https";
 
 export function generateError(msg) {
     return {
@@ -10,6 +11,34 @@ export function generateError(msg) {
     }
 }
 
+export async function createUsers(postUrl, numUsers) {
+    const chance = new Chance();
+    const generatedUsers = [];
+    for (let i = 0; i < numUsers; i++) {
+        const email = chance.email();
+        const data = {
+            email: email,
+            password: email.split("@")[0]
+        };
+        generatedUsers.push(data);
+        // Default options are marked with *
+        await fetch(postUrl, {
+            method: 'POST', // *GET, POST, PUT, DELETE, etc.
+            mode: 'cors', // no-cors, *cors, same-origin
+            cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
+            credentials: 'same-origin', // include, *same-origin, omit
+            headers: {
+                'Content-Type': 'application/json'
+                // 'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            redirect: 'follow', // manual, *follow, error
+            referrerPolicy: 'no-referrer', // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
+            body: JSON.stringify(data) // body data type must match "Content-Type" header
+        })
+            .catch(err => console.error(err));
+    }
+    return generatedUsers;
+}
 /* Create users (possibly duplicates) */
 /* Used in user-creation test suite */
 export async function createUsersWithDuplicates(postUrl, numUsers) {
@@ -113,10 +142,13 @@ export async function createUsersWithRandHistories(postUrl, numUsers, maxHistory
     const generatedUsers = [];
     for (let i = 0; i < numUsers; i++) {
         const numEntries = Math.round(Math.random() * maxHistoryLength);
+        const rand = new BigNumber(Math.random());
+        const balance = rand.multipliedBy(Math.random() * 10 ** 10).multipliedBy(Math.random() * 10 ** 10).toFixed(2);
         const email = chance.email();
         const data = {
             email: email,
             password: email.split("@")[0],
+            balance: balance,
             history: generateRandomHistory(numEntries),
         };
         generatedUsers.push(data);
@@ -174,19 +206,13 @@ export async function clearCollection(url) {
 
 export async function getAllUsers(getUrl) {
     let retrieved = [];
-    await fetch(getUrl, {
-        method: 'GET',
-        mode: 'cors', 
-        cache: 'no-cache',
-        credentials: 'same-origin',
+
+    await axios.get(getUrl, {
         headers: {
             'Content-Type': 'application/json'
         },
-        redirect: 'follow',
-        referrerPolicy: 'no-referrer', 
     })
-    .then(responseString => responseString.json())
-    .then(response => retrieved = response)
+    .then(response => retrieved = response.data)
     .catch(err => console.error(err));
     return retrieved;
 }

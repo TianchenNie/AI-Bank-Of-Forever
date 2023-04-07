@@ -1,5 +1,5 @@
 import * as chai from "chai";
-import { createUsersWithRandBalances, clearCollection, generateError } from "./test_utils.js";
+import { createUsersWithRandBalances, clearCollection, generateError } from "../test_utils.js";
 import { isValidMoneyAmount, SECRET } from "../utils.js";
 import BigNumber from "bignumber.js";
 import bcrypt from "bcrypt";
@@ -9,7 +9,7 @@ const numIterations = numUsers * 10;
 describe("** Transfer Test Suite **", function () {
     this.maxDiff = 10 ** 6;
     const expect = chai.expect;
-    const baseUrl = process.env.TEST_SERVER == '1' ? "http://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
+    const baseUrl = process.env.TEST_SERVER == '1' ? "https://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
     const clearUrl = baseUrl + "/testing/clear-users";
     it(`1. Spend money randomly ${numIterations} times on a set of ${numUsers} users on ${baseUrl}.`, async function () {
         const getUrl = baseUrl + "/testing/all-users";

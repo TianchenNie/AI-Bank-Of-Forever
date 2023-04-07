@@ -31,7 +31,7 @@ for (let i = 0; i < aggregateDelta.length; i++) {
     users[i].balance = users[i].balance.plus(new BigNumber(aggregateDelta[i]));
 }
 
-const baseUrl = process.env.TEST_SERVER == '1' ? "http://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
+const baseUrl = process.env.TEST_SERVER == '1' ? "https://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
 const getUrl = baseUrl + "/testing/all-users";
 
 const retrieved = await getAllUsers(getUrl);

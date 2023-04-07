@@ -132,12 +132,12 @@ router.post(
 
         if (error) return next();
         if (dataBaseRequestor == null) {
-            req.status(RESPONSE.NOT_FOUND).send("User not found.");
+            res.status(RESPONSE.NOT_FOUND).send(generateError("User not found."));
             return next();
         }
 
         if (!bcrypt.compareSync(requestorPassword, dataBaseRequestor.password)) {
-            req.status(RESPONSE.INVALID_AUTH).send("Invalid password");
+            res.status(RESPONSE.INVALID_AUTH).send(generateError("Invalid password"));
             return next();
         }
 
@@ -215,7 +215,9 @@ async function captureOrder(orderId) {
 router.post(
     "/external/paypal/webhooks/order-complete",
     async (req, res, next) => {
+        console.log("Received Webhook!!!");
         const payload = req.body;
+        console.log(req.body);
         const isVerified = await verifyWebhookSignature(req.headers, payload);
         console.log("*********** IS VERIFIED ************: ", isVerified);
 
@@ -233,7 +235,7 @@ router.post(
                 res.status(RESPONSE.BAD_REQUEST).send();
                 return next();
             }
-
+            console.log(`Updating user ${userEmail}`);
             /* update the user balance if we find an array element elem that has a matching orderId */
             /* set the time captured of that element to the current time */
             const updatedUser = await User

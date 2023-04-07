@@ -1,7 +1,12 @@
 import { getAllUsers } from "./test_utils.js";
 import fs from "fs";
 
-const baseUrl = process.env.TEST_SERVER == '1' ? "http://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
+/* insecure.. only for testing purposes
+   remove when we have a legitimate SSL certificate */
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+
+const baseUrl = process.env.TEST_SERVER == '1' ? "https://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
 const getUrl = baseUrl + "/testing/all-users";
 const retrieved = await getAllUsers(getUrl);
 const actualUsers = retrieved.map(user => {

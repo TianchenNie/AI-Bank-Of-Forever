@@ -2,6 +2,10 @@ import fs from "fs";
 import { getAllUsers } from "./test_utils.js";
 import BigNumber from "bignumber.js";
 
+/* insecure.. only for testing purposes
+   remove when we have a legitimate SSL certificate */
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 console.log("Starting verification of internal transfers");
 const numWorkers = process.argv[2];
 const deltas = [];
@@ -34,7 +38,7 @@ for (let i = 0; i < aggregateDelta.length; i++) {
     users[i].balance = users[i].balance.plus(new BigNumber(aggregateDelta[i]));
 }
 
-const baseUrl = process.env.TEST_SERVER == '1' ? "http://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
+const baseUrl = process.env.TEST_SERVER == '1' ? "https://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
 const getUrl = baseUrl + "/testing/all-users";
 
 const retrieved = await getAllUsers(getUrl);
@@ -68,6 +72,9 @@ for (let i = 0; i < users.length; i++) {
         pass = false;
         console.error( `Mismatch on index ${i}: \n
         Expected User Balance: ${users[i].balance.toFixed(2)} != Actual User Balance: ${dbUsers[i].balance.toFixed(2)}`);
+    }
+    else {
+        console.log(`Expected user balance of ${users[i].email} matches database balance of ${users[i].balance.toString()}`);
     }
 }
 

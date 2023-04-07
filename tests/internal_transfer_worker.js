@@ -2,10 +2,14 @@ import fs from "fs";
 import BigNumber from "bignumber.js";
 import axios from "axios";
 
+/* insecure.. only for testing purposes
+   remove when we have a legitimate SSL certificate */
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 const users = JSON.parse(fs.readFileSync("./initial_users.json"));
 const dumpFile = `./internal_transfer_worker_dumps/dump_worker_${process.argv[2]}.json`;
 const numUsers = users.length;
-const baseUrl = process.env.TEST_SERVER == '1' ? "http://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
+const baseUrl = process.env.TEST_SERVER == '1' ? "https://ec2-3-138-246-144.us-east-2.compute.amazonaws.com/api" : "http://localhost:8080/api";
 const transferUrl = baseUrl + "/transfer/internal"
 const deltas = [];
 for (let i = 0; i < numUsers; i++) {
@@ -23,7 +27,7 @@ for (let i = 0; i < 20; i++) {
 
     const sender = users[index];
     const receiver = users[index2];
-    const senderPassword = "1234";
+    const senderPassword = users[index].email.split("@")[0];
     /* super small spend amount just so every user has enough money */
     const amount = (Math.random() * (Math.random() * (10 ** 6))).toFixed(2);
     const body = {
