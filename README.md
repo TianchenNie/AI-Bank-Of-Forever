@@ -1,16 +1,16 @@
-**Project Description**
+**Project Description**  
 The goal of this project is to build a financial bank back end to a conversational financial AI system, where the financial back end will be able to request funds from a user, confirm receipt of funds, and to transfer funds and/or payout from a user account.
 
 The developed bank back end has been tested for reliability, security, and functionality.
 
-**Installation**
+**Installation**  
 To install the project (both in development and LIVE environments), download this code, navigate to "AI-Bank-Of-Forever" and run 
 ```bash
 npm install
 ```
 To run the testing suites in development mode, `node 18` should be used. It is sufficient to use `node 16` when running in a _LIVE_ environment.
 
-**Usage**
+**Usage**  
 To run the application in development mode, do
 ```bash
 node index.js
@@ -33,7 +33,7 @@ To run the application continuously in a process management fashion, do
 pm2 start index.js
 ```
 
-**Description**
+**Description**  
 See the description of essential files in the following table. An asterisk * means there are potential updates needed in this file.
 | File             | Description                                                         |
 |:------------------:|---------------------------------------------------------------------|
