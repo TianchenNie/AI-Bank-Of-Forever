@@ -52,6 +52,8 @@ async function getAccessToken() {
 let accessToken = await getAccessToken();
 console.log("Got Access Token:", accessToken);
 
+// Currently needs updates to verify webhook signature
+// https://developer.paypal.com/docs/api/webhooks/v1/#verify-webhook-signature_post
 async function verifyWebhookSignature(headers, payload) {
     const url = "https://api-m.sandbox.paypal.com/v1/notifications/verify-webhook-signature";
     const webHookId = "9US32710Y7947011C";
@@ -62,19 +64,8 @@ async function verifyWebhookSignature(headers, payload) {
     const certUrl = headers['paypal-cert-url'];
     const transmissionSig = headers['paypal-transmission-sig'];
 
-    const sortKeysAlphabetically = (key, value) => {
-        if (typeof value === 'object' && value !== null) {
-            const sortedObj = {};
-            Object.keys(value).sort().forEach(subKey => {
-                sortedObj[subKey] = sortKeysAlphabetically(subKey, value[subKey]);
-            });
-            return sortedObj;
-        }
-        return value;
-    };
-
     const payloadStr = JSON.stringify(payload);
-    const payloadObj = JSON.parse(payloadStr, sortKeysAlphabetically);
+    const payloadObj = JSON.parse(payloadStr);
 
     const reqBody = {
         transmission_id: transmissionId,
@@ -85,9 +76,6 @@ async function verifyWebhookSignature(headers, payload) {
         webhook_id: webHookId,
         webhook_event: payloadObj
     };
-
-    console.log("REQ BODY: ");
-    console.log(JSON.stringify(reqBody, null, 2));
 
     const response = await fetch(url, {
         method: "POST",
@@ -215,11 +203,11 @@ async function captureOrder(orderId) {
 router.post(
     "/external/paypal/webhooks/order-complete",
     async (req, res, next) => {
-        console.log("Received Webhook!!!");
         const payload = req.body;
         console.log(req.body);
+
+        // currently verifying webhook doesn't work, needs updates.
         const isVerified = await verifyWebhookSignature(req.headers, payload);
-        console.log("*********** IS VERIFIED ************: ", isVerified);
 
         if (payload.event_type === "CHECKOUT.ORDER.APPROVED") {
             const orderId = payload.resource.id;
