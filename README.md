@@ -34,7 +34,7 @@ pm2 start index.js
 ```
 
 **Description**  
-See the description of essential files in the following table. An asterisk * means there are potential updates needed in this file.
+See the description of essential files in the following table.
 | File             | Description                                                         |
 |:------------------:|---------------------------------------------------------------------|
 | **index.js**       | Main entry point for the application, contains logic for setting up database connection, routers, and listens on a specified port.|
@@ -44,3 +44,4 @@ See the description of essential files in the following table. An asterisk * mea
 | **routes/account-info.js** | Handles **account-info** (balance, request history) retrievals.      |
 | **routes/transfer.js***     | Handles **transfer** related requests (spend, internal transfer, external money request). Currently, everything is functional, but external money transfer needs a function to handle verifying paypal webhooks.               |
 | **tests/*** | Contains unit tests that test the application for functionality even on heavy loads. Be sure to update server information when testing LIVE on an updated server. |
+An **asterisk** * means there are potential updates needed in this file.
